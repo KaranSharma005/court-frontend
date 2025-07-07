@@ -12,6 +12,8 @@ interface TestStoreState {
 	setAppLoading: (_state: boolean) => void;
 	getRole: (_role: number) => string;
 	setMessageInstance: (_message: MessageInstance) => void;
+	selectedRecord : any;
+	setRecord : (record : any) => void;
 }
 
 export const createAppStore = (client: MainClient) => {
@@ -23,6 +25,8 @@ export const createAppStore = (client: MainClient) => {
 		setAppLoading: () => {},
 		setMessageInstance: () => {},
 		getRole: (role: number) => rolesMap[role as keyof typeof rolesMap],
+		selectedRecord: null,
+		setRecord: () => {},
 	};
 
 	return create<TestStoreState>()(
@@ -49,6 +53,11 @@ export const createAppStore = (client: MainClient) => {
 					return appStore;
 				});
 			},
+			setRecord(record : any){
+				set((state) => {
+					state.selectedRecord = record;
+				})
+			}
 		}))
 	);
 };

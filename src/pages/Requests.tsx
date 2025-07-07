@@ -1,7 +1,7 @@
 import MainAreaLayout from "../components/main-layout/main-layout";
 import CustomTable from "../components/CustomTable";
 import { useNavigate } from "react-router";
-import { ReaderClient } from '../store';
+import { ReaderClient, useAppStore } from '../store';
 import {
     Button,
     Input,
@@ -42,6 +42,7 @@ export default function Requests() {
     const navigate = useNavigate();
     const [form] = Form.useForm();
     const [row, setRow] = useState<Template[]>([]);
+    const setRecord = useAppStore().setRecord;
 
     const onPreview = async (record: Template) => {
         try {
@@ -58,6 +59,7 @@ export default function Requests() {
     }
 
     const showAllDocs = (record: Template) => {
+        setRecord(record);
         navigate(`/dashboard/request/${record.id}`);
     }
 

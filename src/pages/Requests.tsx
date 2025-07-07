@@ -1,7 +1,7 @@
 import MainAreaLayout from "../components/main-layout/main-layout";
 import CustomTable from "../components/CustomTable";
+import { useNavigate } from "react-router";
 import { ReaderClient } from '../store';
-import type { ColumnsType } from 'antd/es/table';
 import {
     Button,
     Input,
@@ -9,7 +9,8 @@ import {
     Drawer,
     message,
     Upload,
-    Tag
+    Tag,
+    Flex
 } from "antd";
 import { useEffect, useState } from "react";
 import type { GetProps } from 'antd';
@@ -38,38 +39,76 @@ export default function Requests() {
     const onSearch: SearchProps['onSearch'] = (value, _e, info) => console.log(info?.source, value);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const navigate = useNavigate();
     const [form] = Form.useForm();
     const [row, setRow] = useState<Template[]>([]);
 
-    const onPreview = (record : Template) => {
-        console.log(record);
+    const onPreview = async (record: Template) => {
+        try {
+            const id = record?.id;
+            // const buffer = await ReaderClient.showPreview(id);
+            // const pdfBlob = new Blob([buffer], { type: 'application/pdf' });
+            // const fileURL = URL.createObjectURL(pdfBlob);
+            const previewURL = `http://localhost:3000/template/preview/${id}`;
+            window.open(previewURL, '');
+        }
+        catch (err) {
+            handleError(err, "Failed to preview template");
+        }
     }
 
-    const showAllDocs = (record : Template) => {
-        console.log(record);
+    const showAllDocs = (record: Template) => {
+        navigate(`/dashboard/request/${record.id}`);
     }
 
-    const getActions = (record : Template) => {
+    const deleteTemplate = async (id : string) => {
+        try{
+            const response = await ReaderClient.deleteTemplate(id);
+            setRow(response?.templatesData);
+        }
+        catch (err) {
+            handleError(err, "Failed to save template");
+        }
+    }
+
+    const cloneTemplate = async (id : string) => {
+        try{
+            const response = await ReaderClient.clone(id);
+            setRow(response?.templatesData);
+        }
+        catch (err) {
+            handleError(err, "Failed to save template");
+        }
+    }
+
+    const getActions = (record: Template) => {
         console.log(record);
-        return(
-            <div>Hello</div>
-        )
+        if(record?.data?.length == 0){
+            return(
+                <>
+                    <Flex gap="middle">
+                        <Button type="primary" onClick={() => cloneTemplate(record.id)}>Clone</Button>
+                        <Button danger onClick={() => deleteTemplate(record.id)}>Delete</Button>
+                    </Flex>
+                </>
+            )
+        }
     }
 
     useEffect(() => {
-        async function getAll(){
-            try{
+        async function getAll() {
+            try {
                 const response = await ReaderClient.allTemplates();
-                setRow(response.templatesData);
+                setRow(response?.templatesData);
             }
             catch (err) {
-            handleError(err, "Failed to save template");
-        }
+                handleError(err, "Failed to save template");
+            }
         }
         getAll();
-    },[])
+    }, [])
 
-    const columns : ColumnsType<Template> = [
+    const columns = [
         {
             title: 'Title',
             dataIndex: 'templateName',
@@ -92,9 +131,7 @@ export default function Requests() {
             render: (_: any, record: Template) => {
                 const rejectedCount = record.data?.filter(d => d.rejectionReason)?.length || 0;
                 return (
-                    <Button type="link">
-                        {rejectedCount}
-                    </Button>
+                    rejectedCount
                 );
             },
         },
@@ -113,7 +150,7 @@ export default function Requests() {
         },
         {
             title: 'Action',
-            key :'action',
+            key: 'action',
             render: (_: any, record: Template) => getActions(record),
         },
     ];
@@ -146,11 +183,11 @@ export default function Requests() {
             message.success("Template uploaded successfully");
             const response = await ReaderClient.allTemplates();
             setRow(response?.templatesData);
-            
+
             setIsDrawerOpen(false);
             form.resetFields();
             setSelectedFile(null);
-        } 
+        }
         catch (err) {
             handleError(err, "Failed to save template");
         }
@@ -184,9 +221,10 @@ export default function Requests() {
             }
         >
             <CustomTable
-                columns={columns} 
+                columns={columns}
                 data={row}
                 serialNumberConfig={{ name: "", show: true }}
+                key="_id"
             />
 
             <Drawer
@@ -215,7 +253,7 @@ export default function Requests() {
                     >
                         <Upload
                             name="file"
-                            beforeUpload={() => false} // prevent automatic upload
+                            beforeUpload={() => false}
                             onChange={handleFileChange}
                             showUploadList={{ showRemoveIcon: true }}
                             onRemove={() => setSelectedFile(null)}

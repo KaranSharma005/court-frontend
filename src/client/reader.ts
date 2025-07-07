@@ -20,4 +20,21 @@ export class ReaderC extends Client {
         const res = await this.request("GET", `/template/getAll`);
         return res.data;
     }
+
+    async showPreview(id: string){
+        const res = await this.request("GET", `/template/preview/${id}`,{
+          responseType: 'blob',
+        });
+        return res.data;
+    }
+
+    async deleteTemplate(id : string){
+        const res = await this.request("DELETE", `/template/delete/${id}`);
+        return res.data;
+    }
+
+    async clone(id : string) {
+        const res = await this.request("POST", `/template/clone/${id}`);
+        return res.data;
+    }
 }

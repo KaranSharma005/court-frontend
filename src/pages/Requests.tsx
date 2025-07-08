@@ -67,6 +67,7 @@ export default function Requests() {
         try{
             const response = await ReaderClient.deleteTemplate(id);
             setRow(response?.templatesData);
+            message.success("Template deleted successfully!");
         }
         catch (err) {
             handleError(err, "Failed to save template");

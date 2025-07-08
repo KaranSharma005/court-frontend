@@ -37,4 +37,32 @@ export class ReaderC extends Client {
         const res = await this.request("POST", `/template/clone/${id}`);
         return res.data;
     }
+
+    async uploadSignature(
+        formData : FormData
+    ){
+        const res = await this.request("POST", `/signatures/addSignature`, {
+			data: formData,
+            headers: { "Content-Type" : "multipart/form-data"}
+		});
+        return res.data;
+    }
+
+    async getSignature(){
+        const res = await this.request("GET",`/signatures/getAll`);
+        return res.data;
+    }
+
+    async deleteSignature(id : string){
+        const res = await this.request("DELETE", `/signatures/delete/${id}`);
+        return res.data;
+    }
+
+    async handleBulkUpload(formData : FormData){
+        const res = await this.request("POST", `/template/addExcel`, {
+			data: formData,
+            headers: { "Content-Type" : "multipart/form-data"}
+		});
+        return res.data;
+    }
 }

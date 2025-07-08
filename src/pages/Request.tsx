@@ -1,6 +1,6 @@
 import MainAreaLayout from "../components/main-layout/main-layout";
 // import CustomTable from "../components/CustomTable";
-import { useAppStore } from '../store';
+import { ReaderClient, useAppStore } from '../store';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver'
 
@@ -18,7 +18,7 @@ import { UploadOutlined } from '@ant-design/icons';
 export default function RequestPage() {
 	const [form] = Form.useForm();
 	const [buttonClick, setButtonClick] = useState(false)
-	const [selectedFile, setSelectedFile] = useState<File | null>(null);;
+	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const record = useAppStore((state) => state.selectedRecord);
 	const request = `Request : ${record?.templateName}`;
 
@@ -30,7 +30,7 @@ export default function RequestPage() {
 	}
 
 	const handleFileChange = (info: any) => {
-		const file = info.file.originFileObj || info.file;
+		const file = info?.file?.originFileObj || info?.file;
 		if (file) {
 			setSelectedFile(file);
 		}
@@ -73,6 +73,23 @@ export default function RequestPage() {
 		return message.error(fallbackMsg);
 	};
 
+	const handleExcelFile = async () => {
+		try{
+			const formData = new FormData();
+            if (selectedFile) {
+                formData.append("signature", selectedFile);
+            } else {
+                throw new Error("No file selected");
+            }
+			const response = await ReaderClient.handleBulkUpload(formData);
+			console.log(response);
+			
+		}
+		catch (err) {
+			handleError(err, "Failed to save template");
+		}
+	}
+
 	return (
 		<MainAreaLayout
 			title={request}
@@ -99,14 +116,14 @@ export default function RequestPage() {
 					<Flex gap="large">
 						<Upload
 							accept=".xls,.xlsx"
-							name="file"
+							name="excelFile"
 							beforeUpload={() => false}
 							onChange={handleFileChange}
 							maxCount={1}
 							showUploadList={{ showRemoveIcon: true }}
 							onRemove={() => setSelectedFile(null)}
 						>
-							<Button icon={<UploadOutlined />}>
+							<Button icon={<UploadOutlined />} onClick={() => handleExcelFile()}>
 								Click to Upload
 							</Button>
 						</Upload>

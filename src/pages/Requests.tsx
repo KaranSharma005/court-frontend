@@ -93,6 +93,7 @@ export default function Requests() {
                         <Button type="primary" onClick={() => cloneTemplate(record.id)}>Clone</Button>
                         <Button danger onClick={() => deleteTemplate(record.id)}>Delete</Button>
                     </Flex>
+                    
                 </>
             )
         }

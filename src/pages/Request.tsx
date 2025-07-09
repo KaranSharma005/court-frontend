@@ -1,10 +1,12 @@
 import MainAreaLayout from "../components/main-layout/main-layout";
-// import CustomTable from "../components/CustomTable";
+import CustomTable from "../components/CustomTable";
 import { ReaderClient, useAppStore } from '../store';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver'
+import { useParams } from "react-router";
+import type { ColumnsType } from 'antd/es/table';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
 	Button,
 	Form,
@@ -17,10 +19,61 @@ import { UploadOutlined } from '@ant-design/icons';
 
 export default function RequestPage() {
 	const [form] = Form.useForm();
+	const id = useParams()?.id;
 	const [buttonClick, setButtonClick] = useState(false)
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
+	const [fields, setFields] = useState<ColumnsType<any>>([]);
+
+	const [tableData, setTableData] = useState<any[]>([]);
 	const record = useAppStore((state) => state.selectedRecord);
-	const request = `Request : ${record?.templateName}`;
+	const [name, setName] = useState<string>("");
+
+	useEffect(() => {
+		async function getFields() {
+			try {
+				if (!id) return;
+				const response = await ReaderClient.getTemplateFields(id);
+
+				const templateVars = response?.templateVar?.templateVariables;
+				setName(response?.name);
+				if (Array.isArray(templateVars)) {
+					const columns: ColumnsType<any> = templateVars
+						.filter((col) => col.showOnExcel)
+						.map((col) => ({
+							title: col.name,
+							dataIndex: col.name,
+							key: col.name
+						}));
+
+					columns.push({
+						title: "Actions",
+						key: "actions",
+						render: (_: unknown, record: any) => (
+							<>
+								<Button type="link" onClick={() => console.log(record)}>Preview</Button>
+								<Button type="link" danger onClick={() => handleDocDelete(record?.id)}>Delete</Button>
+							</>
+						),
+					});
+					setFields(columns);
+				} else {
+					console.error("templateVariables is not an array:", templateVars);
+				}
+			} catch (err) {
+				handleError(err, "Failed to load template fields");
+			}
+		}
+
+		getFields();
+	}, []);
+
+	const handleDocDelete = async (id: string) => {
+		try {
+
+		} catch (err) {
+			handleError(err, "Failed to load template fields");
+		}
+	}
 
 	interface excelFields {
 		name: string,
@@ -39,11 +92,8 @@ export default function RequestPage() {
 	const downloadtemplate = () => {
 		try {
 			const fields = record?.templateVariables;
-			console.log(record);
 
 			const fieldsToShow = fields.filter((f: excelFields) => f.showOnExcel);
-			console.log(fieldsToShow);
-
 			const row: Record<string, string> = {};
 			fieldsToShow.forEach((field: excelFields) => {
 				row[field.name] = "";
@@ -73,17 +123,46 @@ export default function RequestPage() {
 		return message.error(fallbackMsg);
 	};
 
+
+	useEffect(() => {
+		async function onloadFunction() {
+			try {
+				if (!id) return;
+				const response = await ReaderClient.getAllDoc(id);
+				const rowDataFromBackend = response?.finalOutput;
+
+				const data = rowDataFromBackend.map((item: any) => ({
+					key: item.id,
+					...item.data,
+				}));
+				setTableData(data);
+			}
+			catch (err) {
+				handleError(err, "Failed to save template");
+			}
+		}
+
+		onloadFunction();
+	}, []);
+
 	const handleExcelFile = async () => {
-		try{
+		try {
 			const formData = new FormData();
-            if (selectedFile) {
-                formData.append("signature", selectedFile);
-            } else {
-                throw new Error("No file selected");
-            }
-			const response = await ReaderClient.handleBulkUpload(formData);
-			console.log(response);
-			
+			if (selectedFile) {
+				formData.append("excelFile", selectedFile);
+			} else {
+				throw new Error("No file selected");
+			}
+			if (!id) return;
+			const response = await ReaderClient.handleBulkUpload(formData, id);
+			const rowDataFromBackend = response?.finalOutput;
+
+			const data = rowDataFromBackend.map((item: any) => ({
+				key: item.id,
+				...item.data,
+			}));
+
+			setTableData((prev) => [...prev, data]);
 		}
 		catch (err) {
 			handleError(err, "Failed to save template");
@@ -92,7 +171,7 @@ export default function RequestPage() {
 
 	return (
 		<MainAreaLayout
-			title={request}
+			title={name}
 			extra={
 				<>
 					<Button
@@ -105,7 +184,7 @@ export default function RequestPage() {
 					>
 						Bulk Upload
 					</Button>
-					<Button onClick={() => downloadtemplate()}>
+					<Button onClick={() => downloadtemplate()} type="primary">
 						Download Template
 					</Button>
 				</>
@@ -123,14 +202,21 @@ export default function RequestPage() {
 							showUploadList={{ showRemoveIcon: true }}
 							onRemove={() => setSelectedFile(null)}
 						>
-							<Button icon={<UploadOutlined />} onClick={() => handleExcelFile()}>
+							<Button icon={<UploadOutlined />} >
 								Click to Upload
 							</Button>
 						</Upload>
-						<Button disabled={!selectedFile} type="primary">Upload</Button>
+						<Button type="primary" onClick={() => handleExcelFile()}>Upload</Button>
 					</Flex>
 				</Card>
 			)}
+
+			<CustomTable
+				columns={fields}
+				data={tableData}
+				serialNumberConfig={{ name: "", show: true }}
+				key="id"
+			/>
 		</MainAreaLayout>
 
 	)

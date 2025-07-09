@@ -58,11 +58,21 @@ export class ReaderC extends Client {
         return res.data;
     }
 
-    async handleBulkUpload(formData : FormData){
-        const res = await this.request("POST", `/template/addExcel`, {
+    async handleBulkUpload(formData : FormData, id : string){
+        const res = await this.request("POST", `/template/addExcel/${id}`, {
 			data: formData,
             headers: { "Content-Type" : "multipart/form-data"}
 		});
+        return res.data;
+    }
+
+    async getTemplateFields(id : string){
+        const res = await this.request("GET", `/template/extractFields/${id}`);
+        return res.data;
+    }
+
+    async getAllDoc(id : string){
+        const res = await this.request("GET", `/template/getAll/${id}`);
         return res.data;
     }
 }

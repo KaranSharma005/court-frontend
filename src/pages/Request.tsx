@@ -89,11 +89,10 @@ export default function RequestPage() {
 		}
 	}
 
-	const handlePreview = async (templateID: string, id: string) => {
+	const handlePreview = async (id: string, templateID: string) => {
 		try {
-			const response = await ReaderClient.handlePreview(templateID, id);
-			console.log(response);
-
+			const previewURL = `http://localhost:3000/template/preview/${templateID}/${id}`;
+            window.open(previewURL, '');
 		}
 		catch (error) {
 			handleError("Failed to preview template");

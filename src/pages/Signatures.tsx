@@ -13,16 +13,18 @@ import { ReaderClient } from '../store';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 
 interface Signature {
-    url : string,
-    _id : string
+    url: string,
+    _id: string
 }
 const Signatures: React.FC = () => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [imageURL, setImageURL] = useState<Signature[]>([]);
+    const [fileList, setFileList] = useState<any[]>([]);
     const handleFileChange = (info: any) => {
-        const file = info.file.originFileObj || info.file;
+        const file = info?.file?.originFileObj || info?.file;
         if (file) {
             setSelectedFile(file);
+            setFileList([info.file]);
         }
     };
 
@@ -47,6 +49,7 @@ const Signatures: React.FC = () => {
             const response = await ReaderClient.uploadSignature(formData);
             setImageURL(response?.allURL);
             setSelectedFile(null);
+            setFileList([]);
             message.success("Signature Uploaded successfully!");
         }
         catch (err) {
@@ -67,8 +70,8 @@ const Signatures: React.FC = () => {
         getURL();
     }, [])
 
-    const deleteSignature = async (id : string) => {
-        try{
+    const deleteSignature = async (id: string) => {
+        try {
             const response = await ReaderClient.deleteSignature(id);
             setImageURL(response?.allURL);
             message.success("Deleted successfully!");
@@ -89,8 +92,13 @@ const Signatures: React.FC = () => {
                     beforeUpload={() => false}
                     onChange={handleFileChange}
                     maxCount={1}
+                    fileList={fileList}
                     showUploadList={{ showRemoveIcon: true }}
-                    onRemove={() => setSelectedFile(null)}
+                    onRemove={() => {
+                        setSelectedFile(null)
+                        setFileList([]);
+                    }
+                    }
                 >
                     <Button icon={<UploadOutlined />} >
                         Click to Upload
@@ -111,12 +119,12 @@ const Signatures: React.FC = () => {
             {imageURL?.length > 0 && (
                 <Row gutter={{ xs: 8, sm: 16, md: 24, lg: 32 }}>
                     {
-                        imageURL?.map((item: {url : string, _id : string}) => {
+                        imageURL?.map((item: { url: string, _id: string }) => {
                             const path = `http://localhost:3000/signature/${item.url}`
                             return (
                                 <Col key={item?._id} className="gutter-row" span={5}>
                                     <img src={path} alt="" height="80px" width="80px" />
-                                    <DeleteOutlined onClick={() => deleteSignature(item._id)}/>   
+                                    <DeleteOutlined onClick={() => deleteSignature(item._id)} />
                                 </Col>
                             )
                         })

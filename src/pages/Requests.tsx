@@ -1,7 +1,7 @@
 import MainAreaLayout from "../components/main-layout/main-layout";
 import CustomTable from "../components/CustomTable";
 import { useNavigate } from "react-router";
-import { ReaderClient, useAppStore } from '../store';
+import { ReaderClient, useAppStore, userClient } from '../store';
 import {
     Button,
     Input,
@@ -10,9 +10,11 @@ import {
     message,
     Upload,
     Tag,
-    Flex
+    MenuProps,
+    Dropdown
 } from "antd";
 import { useEffect, useState } from "react";
+import { DownOutlined } from '@ant-design/icons';
 import type { GetProps } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 
@@ -29,6 +31,11 @@ interface Template {
     signStatus: number;
 }
 
+interface Officer {
+    name: string,
+    email: string
+}
+
 const statusMap: Record<number, { color: string, label: string }> = {
     0: { color: 'red', label: 'Unsigned' },
     1: { color: 'green', label: 'Signed' },
@@ -39,6 +46,7 @@ export default function Requests() {
     const onSearch: SearchProps['onSearch'] = (value, _e, info) => console.log(info?.source, value);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [officers, setOfficers] = useState<Officer[]>([]);
     const navigate = useNavigate();
     const [form] = Form.useForm();
     const [row, setRow] = useState<Template[]>([]);
@@ -47,9 +55,6 @@ export default function Requests() {
     const onPreview = async (record: Template) => {
         try {
             const id = record?.id;
-            // const buffer = await ReaderClient.showPreview(id);
-            // const pdfBlob = new Blob([buffer], { type: 'application/pdf' });
-            // const fileURL = URL.createObjectURL(pdfBlob);
             const previewURL = `http://localhost:3000/template/preview/${id}`;
             window.open(previewURL, '');
         }
@@ -63,8 +68,8 @@ export default function Requests() {
         navigate(`/dashboard/request/${record.id}`);
     }
 
-    const deleteTemplate = async (id : string) => {
-        try{
+    const deleteTemplate = async (id: string) => {
+        try {
             const response = await ReaderClient.deleteTemplate(id);
             setRow(response?.templatesData);
             message.success("Template deleted successfully!");
@@ -74,8 +79,8 @@ export default function Requests() {
         }
     }
 
-    const cloneTemplate = async (id : string) => {
-        try{
+    const cloneTemplate = async (id: string) => {
+        try {
             const response = await ReaderClient.clone(id);
             setRow(response?.templatesData);
         }
@@ -84,20 +89,51 @@ export default function Requests() {
         }
     }
 
-    const getActions = (record: Template) => {
-        console.log(record);
-        if(record?.data?.length == 0){
-            return(
-                <>
-                    <Flex gap="middle">
-                        <Button type="primary" onClick={() => cloneTemplate(record.id)}>Clone</Button>
-                        <Button danger onClick={() => deleteTemplate(record.id)}>Delete</Button>
-                    </Flex>
-                    
-                </>
-            )
+    const handleDispatch = async (id: string) => {
+        try {
+            await ReaderClient.dispatchOfficer(id);
+            message.success("Dispatched successfully!");
+        }
+        catch (err) {
+            handleError(err, "Failed to save template");
         }
     }
+
+
+    const getActions = (record: Template) => {
+        const items: MenuProps['items'] = [
+            {
+                key: 'clone',
+                label: 'Clone',
+                onClick: () => cloneTemplate(record.id),
+            },
+            {
+                key: 'delete',
+                label: 'Delete',
+                danger: true,
+                onClick: () => deleteTemplate(record.id),
+            },
+        ];
+
+        if (record?.data?.length !== 0) {
+            items.push({
+                key: 'dispatch',
+                label: 'Dispatch',
+                onClick: () => handleDispatch(record.id),
+            });
+        }
+
+        return (
+            <Dropdown
+                menu={{ items }}
+                trigger={['click']}
+            >
+                <Button>
+                    Actions <DownOutlined />
+                </Button>
+            </Dropdown>
+        );
+    };
 
     useEffect(() => {
         async function getAll() {
@@ -111,6 +147,19 @@ export default function Requests() {
         }
         getAll();
     }, [])
+
+    useEffect(() => {
+        async function onload() {
+            try {
+                const response = await userClient.getOfficers();
+                setOfficers(response?.officers);
+            }
+            catch (err) {
+                handleError(err, "Failed to load template fields");
+            }
+        }
+        onload();
+    }, []);
 
     const columns = [
         {

@@ -76,4 +76,9 @@ export class UserClient extends Client {
 		});
 		return array;
 	}
+
+	async getOfficers(){
+        const res = await this.request("GET", `/api/users/getOfficers`);
+        return res.data;
+    }
 }

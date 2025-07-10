@@ -23,6 +23,7 @@ export default function RequestPage() {
 	const [buttonClick, setButtonClick] = useState(false)
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [fields, setFields] = useState<ColumnsType<any>>([]);
+	const [isDispatched, setDispatched] = useState(false);
 
 	const [tableData, setTableData] = useState<any[]>([]);
 	const record = useAppStore((state) => state.selectedRecord);
@@ -50,8 +51,12 @@ export default function RequestPage() {
 						key: "actions",
 						render: (_: unknown, record: any) => (
 							<>
-								<Button type="link" onClick={() => console.log(record)}>Preview</Button>
-								<Button type="link" danger onClick={() => handleDocDelete(record?.id)}>Delete</Button>
+								<Button type="link" onClick={() => handlePreview(record?.id, id)}>Preview</Button>
+								{
+									isDispatched == false && (
+										<Button type="link" danger onClick={() => handleDocDelete(record?.id)}>Delete</Button>
+									)
+								}
 							</>
 						),
 					});
@@ -67,11 +72,31 @@ export default function RequestPage() {
 		getFields();
 	}, []);
 
-	const handleDocDelete = async (id: string) => {
+	const handleDocDelete = async (docId: string) => {
 		try {
-
+			console.log(id, docId);
+			
+			if (!id) return;
+			const response = await ReaderClient.deleteDoc(docId, id);
+			const rowDataFromBackend = response?.finalOutput;
+			const data = rowDataFromBackend.map((item: any) => ({
+				id: item.id,
+				...item.data,
+			}));
+			setTableData(data);
 		} catch (err) {
-			handleError(err, "Failed to load template fields");
+			handleError("Failed to delete template");
+		}
+	}
+
+	const handlePreview = async (templateID: string, id: string) => {
+		try {
+			const response = await ReaderClient.handlePreview(templateID, id);
+			console.log(response);
+
+		}
+		catch (error) {
+			handleError("Failed to preview template");
 		}
 	}
 
@@ -130,11 +155,12 @@ export default function RequestPage() {
 				if (!id) return;
 				const response = await ReaderClient.getAllDoc(id);
 				const rowDataFromBackend = response?.finalOutput;
-
+				setDispatched(response?.isDispatched || false);
 				const data = rowDataFromBackend.map((item: any) => ({
-					key: item.id,
+					id: item.id,
 					...item.data,
 				}));
+
 				setTableData(data);
 			}
 			catch (err) {
@@ -158,11 +184,11 @@ export default function RequestPage() {
 			const rowDataFromBackend = response?.finalOutput;
 
 			const data = rowDataFromBackend.map((item: any) => ({
-				key: item.id,
+				id: item.id,
 				...item.data,
 			}));
 
-			setTableData((prev) => [...prev, data]);
+			setTableData(data);
 		}
 		catch (err) {
 			handleError(err, "Failed to save template");

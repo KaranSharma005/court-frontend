@@ -75,4 +75,19 @@ export class ReaderC extends Client {
         const res = await this.request("GET", `/template/getAll/${id}`);
         return res.data;
     }
+
+    async deleteDoc(docId : string, id : string){
+        const res = await this.request("DELETE", `/template/deleteDoc/${id}/${docId}`);
+        return res.data;
+    }
+
+    async handlePreview(id : string, templateID : string){
+        const res = await this.request("GET", `/template/preview/${templateID}/${id}`);
+        return res.data;
+    }
+
+    async dispatchOfficer(id : string){
+        await this.request("POST",`/template/dispatch/${id}`);
+    }
+    
 }

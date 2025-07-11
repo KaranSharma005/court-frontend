@@ -33,6 +33,7 @@ interface Template {
     }[];
     createdAt: string;
     signStatus: number;
+    assignedTo: string;
 }
 
 interface Officer {
@@ -69,7 +70,7 @@ export default function Requests() {
     useEffect(() => {
         const handleDocumentAssigned = (data: Template) => {
             try {
-                console.log("data" ,data);
+                console.log("data", data);
                 setRow((prev) => [...prev, data]);
             }
             catch (err) {
@@ -141,7 +142,7 @@ export default function Requests() {
         }
     }
 
-    const handleDispatch = async (record: Template) => {
+    const sendForSignature = async (record: Template) => {
         try {
             setSelectedRecord(record?.id);
             setIsModalOpen(true);
@@ -151,43 +152,98 @@ export default function Requests() {
         }
     }
 
+    const handleSign = (id : string) => {
+        try{
+            console.log(id);
+        }
+        catch(err){
+            handleError(err, "Failed to Sign");
+        }
+    }
+
+    const handleDelegate = (id : string) => {
+        try{
+
+        }
+        catch(err){
+            handleError(err, "Failed to delegate");
+        }
+    }
 
     const getActions = (record: Template) => {
-        const items: MenuProps['items'] = [
-            {
-                key: 'clone',
-                label: 'Clone',
-                onClick: () => cloneTemplate(record.id),
-            },
-        ];
+        if (role === 3) {
+            const items: MenuProps['items'] = [
+                {
+                    key: 'clone',
+                    label: 'Clone',
+                    onClick: () => cloneTemplate(record.id),
+                },
+            ];
 
-        if (record?.signStatus === 0 && record?.data?.length > 0) {
-            items.push({
-                key: 'dispatch',
-                label: 'Send for Signature',
-                onClick: () => handleDispatch(record),
-            });
-        }
-        
-        if(record?.signStatus == 0){
-            items?.push({
-                key: 'delete',
-                label: 'Delete',
-                danger: true,
-                onClick: () => deleteTemplate(record.id),
-            })
-        }
+            if (record?.signStatus === 0 && record?.data?.length > 0) {
+                items.push({
+                    key: 'dispatch',
+                    label: 'Send for Signature',
+                    onClick: () => sendForSignature(record),
+                });
+            }
 
-        return (
-            <Dropdown
-                menu={{ items }}
-                trigger={['click']}
-            >
-                <Button>
-                    Actions <DownOutlined />
-                </Button>
-            </Dropdown>
-        );
+            if (record?.signStatus == 0) {
+                items?.push({
+                    key: 'delete',
+                    label: 'Delete',
+                    danger: true,
+                    onClick: () => deleteTemplate(record.id),
+                })
+            }
+
+            return (
+                <Dropdown
+                    menu={{ items }}
+                    trigger={['click']}
+                >
+                    <Button>
+                        Actions <DownOutlined />
+                    </Button>
+                </Dropdown>
+            );
+        }
+        else if(role === 2){
+            const items: MenuProps['items'] = [
+                {
+                    key: 'clone',
+                    label: 'Clone',
+                    onClick: () => cloneTemplate(record.id),
+                },
+            ];
+
+            if (record?.assignedTo) {
+                items.push({
+                    key: 'sign',
+                    label: 'Sign',
+                    onClick: () => handleSign(record?.id),
+                });
+            }
+
+            if (record?.signStatus == 1) {
+                items?.push({
+                    key: 'delegate',
+                    label: 'delegate',
+                    onClick: () => handleDelegate(record?.id),
+                })
+            }
+
+            return (
+                <Dropdown
+                    menu={{ items }}
+                    trigger={['click']}
+                >
+                    <Button>
+                        Actions <DownOutlined />
+                    </Button>
+                </Dropdown>
+            );
+        }
     };
 
     async function getAll() {

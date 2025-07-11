@@ -86,8 +86,8 @@ export class ReaderC extends Client {
         return res.data;
     }
 
-    async dispatchOfficer(id : string){
-        await this.request("POST",`/template/dispatch/${id}`);
+    async sendForSignature(templateID : string, id : string){
+        await this.request("POST",`/signatures/sendForSign/${templateID}/${id}`);
     }
     
 }

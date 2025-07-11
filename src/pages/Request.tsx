@@ -26,6 +26,7 @@ export default function RequestPage() {
 	const [isDispatched, setDispatched] = useState(false);
 
 	const [tableData, setTableData] = useState<any[]>([]);
+	const [bulkUploadActive, setBulkUploadActive] = useState<boolean>(true);
 	const record = useAppStore((state) => state.selectedRecord);
 	const [name, setName] = useState<string>("");
 
@@ -36,6 +37,8 @@ export default function RequestPage() {
 				const response = await ReaderClient.getTemplateFields(id);
 
 				const templateVars = response?.templateVar?.templateVariables;
+				const assignedTo = response?.assignedToExists;
+				setBulkUploadActive(!assignedTo);
 				setName(response?.name);
 				if (Array.isArray(templateVars)) {
 					const columns: ColumnsType<any> = templateVars
@@ -75,7 +78,7 @@ export default function RequestPage() {
 	const handleDocDelete = async (docId: string) => {
 		try {
 			console.log(id, docId);
-			
+
 			if (!id) return;
 			const response = await ReaderClient.deleteDoc(docId, id);
 			const rowDataFromBackend = response?.finalOutput;
@@ -92,7 +95,7 @@ export default function RequestPage() {
 	const handlePreview = async (id: string, templateID: string) => {
 		try {
 			const previewURL = `http://localhost:3000/template/preview/${templateID}/${id}`;
-            window.open(previewURL, '');
+			window.open(previewURL, '');
 		}
 		catch (error) {
 			handleError("Failed to preview template");
@@ -199,16 +202,20 @@ export default function RequestPage() {
 			title={name}
 			extra={
 				<>
-					<Button
-						type="primary"
-						onClick={() => {
-							setButtonClick(true);
-							form.resetFields();
-						}}
-						className="px-6 py-2 text-lg rounded-md"
-					>
-						Bulk Upload
-					</Button>
+					{
+						bulkUploadActive && (
+							<Button
+								type="primary"
+								onClick={() => {
+									setButtonClick(true);
+									form.resetFields();
+								}}
+								className="px-6 py-2 text-lg rounded-md"
+							>
+								Bulk Upload
+							</Button>
+						)
+					}
 					<Button onClick={() => downloadtemplate()} type="primary">
 						Download Template
 					</Button>

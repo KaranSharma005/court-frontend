@@ -1,7 +1,7 @@
 import MainAreaLayout from "../components/main-layout/main-layout";
 import CustomTable from "../components/CustomTable";
 import { useNavigate } from "react-router";
-import { ReaderClient, useAppStore, userClient } from '../store';
+import { ReaderClient, useAppStore, userClient, OfficerClient } from '../store';
 import {
     Button,
     Input,
@@ -68,15 +68,20 @@ export default function Requests() {
 
     useEffect(() => {
         const handleDocumentAssigned = (data: Template) => {
-            console.log("Received:", data);
+            try {
+                console.log("data" ,data);
+                setRow((prev) => [...prev, data]);
+            }
+            catch (err) {
+                handleError(err, "Error Occured");
+            }
         };
 
         socket.on("signature-request", handleDocumentAssigned);
-
         return () => {
             socket.off("signature-request", handleDocumentAssigned);
         };
-    }, []);
+    }, [socket]);
 
 
     const onPreview = async (record: Template) => {
@@ -154,20 +159,17 @@ export default function Requests() {
                 label: 'Clone',
                 onClick: () => cloneTemplate(record.id),
             },
-            // {
-            //     key: 'delete',
-            //     label: 'Delete',
-            //     danger: true,
-            //     onClick: () => deleteTemplate(record.id),
-            // }
         ];
 
-        if (record?.signStatus === 0) {
+        if (record?.signStatus === 0 && record?.data?.length > 0) {
             items.push({
                 key: 'dispatch',
                 label: 'Send for Signature',
                 onClick: () => handleDispatch(record),
             });
+        }
+        
+        if(record?.signStatus == 0){
             items?.push({
                 key: 'delete',
                 label: 'Delete',
@@ -198,11 +200,13 @@ export default function Requests() {
         }
     }
 
-    async function getForOfficer(){
-        try{
-
+    async function getForOfficer() {         //REquest for officer
+        try {
+            const response = await OfficerClient.getRequests();
+            console.log(response);
+            setRow(response?.requests);
         }
-        catch(error){
+        catch (error) {
             handleError(error, "Failed to fetch Requests");
         }
     }
@@ -211,7 +215,7 @@ export default function Requests() {
         if (role === 3) {
             getAll();
         }
-        else if(role === 2){
+        else if (role === 2) {
             getForOfficer();
         }
     }, [])

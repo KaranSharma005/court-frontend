@@ -38,7 +38,7 @@ export default function RequestPage() {
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [fields, setFields] = useState<ColumnsType<any>>([]);
 	const [selectedRecord, setSelectedRecord] = useState<string>("");
-	const[rejectReason, setRejectionReason] = useState<string>("");
+	const [rejectReason, setRejectionReason] = useState<string>("");
 	// const [isDispatched, setDispatched] = useState(false);
 	const isDispatched = useRef(false);
 
@@ -47,6 +47,7 @@ export default function RequestPage() {
 	const [bulkUploadActive, setBulkUploadActive] = useState<boolean>(true);
 	const record = useAppStore((state) => state.selectedRecord);
 	const [name, setName] = useState<string>("");
+	const [fileList, setFileList] = useState<any[]>([]);
 	const role = useAppStore((state) => state.session?.role);
 
 	useEffect(() => {
@@ -268,17 +269,17 @@ export default function RequestPage() {
 	}
 
 	const handleCancel = () => {
-        try {
-            setIsModalOpen(false);
-        }
-        catch (err) {
-            handleError("Failed to cancel");
-        }
-    }
+		try {
+			setIsModalOpen(false);
+		}
+		catch (err) {
+			handleError("Failed to cancel");
+		}
+	}
 
 	const handleOk = async () => {
-        try {
-            if (!id)
+		try {
+			if (!id)
 				return;
 			await OfficerClient.rejectOne(id, selectedRecord, rejectReason);
 			onloadFunction();
@@ -287,11 +288,11 @@ export default function RequestPage() {
 			setRejectionReason("");
 			setSelectedRecord("");
 			onloadFunction();
-        }
-        catch (err) {
-            handleError("Failed to reject");
-        }
-    }
+		}
+		catch (err) {
+			handleError("Failed to reject");
+		}
+	}
 
 	return (
 		<MainAreaLayout
@@ -327,8 +328,13 @@ export default function RequestPage() {
 							beforeUpload={() => false}
 							onChange={handleFileChange}
 							maxCount={1}
+							fileList={fileList}
 							showUploadList={{ showRemoveIcon: true }}
-							onRemove={() => setSelectedFile(null)}
+							onRemove={() => {
+								setSelectedFile(null)
+								setFileList([]);
+							}
+						}
 						>
 							<Button icon={<UploadOutlined />} >
 								Click to Upload
@@ -349,10 +355,10 @@ export default function RequestPage() {
 						onCancel={handleCancel}
 					>
 						<Input.TextArea
-						rows={4}
-						placeholder="Enter Rejection Reason"
-						value={rejectReason}
-						onChange={(e) => setRejectionReason(e.target.value)}
+							rows={4}
+							placeholder="Enter Rejection Reason"
+							value={rejectReason}
+							onChange={(e) => setRejectionReason(e.target.value)}
 						>
 						</Input.TextArea>
 					</Modal>

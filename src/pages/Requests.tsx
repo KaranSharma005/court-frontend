@@ -32,6 +32,7 @@ interface Template {
     createdAt: string;
     signStatus: number;
     assignedTo: string;
+    createdBy: string;
 }
 
 interface Officer {
@@ -62,11 +63,14 @@ export default function Requests() {
     const [filteredRow, setFilteredRow] = useState<Template[]>([]);
     const [reasonModal, setReasonModal] = useState(false);
     const [rejectReason, setRejectionReason] = useState<string>("");
+    const [delegateModal, setDelegateModal] = useState(false);
+    const [delegateReason, setDelegateReason] = useState<string>("");
     const navigate = useNavigate();
     const [form] = Form.useForm();
     const [row, setRow] = useState<Template[]>([]);
     const setRecord = useAppStore().setRecord;
     const role = useAppStore()?.session?.role;
+    const sessionId = useAppStore((state) => state.session?.userId);
 
     useEffect(() => {
         const handleDocumentAssigned = (data: Template) => {
@@ -164,7 +168,8 @@ export default function Requests() {
 
     const handleDelegate = (id: string) => {
         try {
-            console.log(id);
+            setSelectedRecord(id);
+            setDelegateModal(true);
         }
         catch (err) {
             handleError(err, "Failed to delegate");
@@ -188,7 +193,7 @@ export default function Requests() {
         if (totalDocs > 0 && rejectedCount === totalDocs && role == 2) {
             return <Tag color="red">Rejected</Tag>;
         }
-        if (role === 3) {
+        if (role === 3 || record?.createdBy === sessionId) {
             const items: MenuProps['items'] = [
                 {
                     key: 'clone',
@@ -214,6 +219,14 @@ export default function Requests() {
                 })
             }
 
+            if(record?.signStatus == 3){
+                items.push({
+                    key: 'sign',
+                    label: 'Sign',
+                    onClick: () => handleSign(record?.id),
+                });
+            }
+
             return (
                 <Dropdown
                     menu={{ items }}
@@ -227,6 +240,9 @@ export default function Requests() {
         }
         else if (role === 2) {
             const items: MenuProps['items'] = [];
+            if(record?.signStatus == 3){
+                return <Tag color="#722ed1">Delegated</Tag>;
+            }
 
             if (record?.assignedTo) {
                 items.push({
@@ -448,7 +464,17 @@ export default function Requests() {
         try {
             setReasonModal(false);
             setRejectionReason("");
-            setReasonModal(false);
+        }
+        catch (err) {
+            handleError(err, "An error occured");
+        }
+    }
+
+    const handleCancelDelegate = () => {
+        try{
+            setDelegateModal(false);
+            setDelegateReason("");
+            setSelectedRecord("");
         }
         catch (err) {
             handleError(err, "An error occured");
@@ -461,6 +487,16 @@ export default function Requests() {
         }
         catch (err) {
             handleError(err, "Error in rejection");
+        }
+    }
+
+    const onDelegateOk = async () => {
+        try{
+            await OfficerClient.delegateRequest(selectedRecord,delegateReason);
+            handleCancelDelegate();
+        }
+        catch (err) {
+            handleError(err, "Error in delegating request");
         }
     }
 
@@ -583,6 +619,26 @@ export default function Requests() {
                                 placeholder="Enter Rejection Reason"
                                 value={rejectReason}
                                 onChange={(e) => setRejectionReason(e.target.value)}
+                            >
+                            </Input.TextArea>
+                        </Modal>
+                    )
+                }
+
+                {
+                    delegateModal && (
+                        <Modal
+                            title="Delegation Reason"
+                            closable={{ 'aria-label': 'Custom Close Button' }}
+                            open={delegateModal}
+                            onOk={onDelegateOk}
+                            onCancel={handleCancelDelegate}
+                        >
+                            <Input.TextArea
+                                rows={4}
+                                placeholder="Enter Rejection Reason"
+                                value={delegateReason}
+                                onChange={(e) => setDelegateReason(e.target.value)}
                             >
                             </Input.TextArea>
                         </Modal>

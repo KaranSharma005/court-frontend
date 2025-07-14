@@ -54,6 +54,8 @@ const Signatures: React.FC = () => {
         }
         catch (err) {
             handleError(err, "Failed to save signature");
+            setSelectedFile(null);
+            setFileList([]);
         }
     }
 
@@ -106,6 +108,14 @@ const Signatures: React.FC = () => {
                 </Upload>
 
                 <Button onClick={handleSignature} type="primary">Upload</Button>
+
+                {selectedFile && (
+                    <img
+                        src={URL.createObjectURL(selectedFile)}
+                        alt="Preview"
+                        style={{ marginTop: 16, width: 120, height: 120, objectFit: "contain", border: "1px solid #ccc", borderRadius: 4 }}
+                    />
+                )}
             </Flex>
 
             <Space>

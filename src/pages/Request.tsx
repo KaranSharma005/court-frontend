@@ -1,21 +1,35 @@
 import MainAreaLayout from "../components/main-layout/main-layout";
 import CustomTable from "../components/CustomTable";
-import { ReaderClient, useAppStore } from '../store';
+import { OfficerClient, ReaderClient, useAppStore } from '../store';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver'
 import { useParams } from "react-router";
 import type { ColumnsType } from 'antd/es/table';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
 	Button,
 	Form,
 	message,
 	Card,
 	Upload,
-	Flex
+	Flex,
+	Tag,
+	Modal,
+	Input
 } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
+
+const statusMap: Record<number, { color: string, label: string }> = {
+	0: { color: 'red', label: 'Unsigned' },
+	1: { color: '#1890ff', label: 'Ready to Sign' },
+	2: { color: '#fa541c', label: 'Rejected' },
+	3: { color: '#722ed1', label: 'Delegated' },
+	4: { color: '#fa8c16', label: 'In Process' },
+	5: { color: '#52c41a', label: 'Signed' },
+	6: { color: '#13c2c2', label: 'Ready To Dispatch' },
+	7: { color: '#faad14', label: 'Dispatched' },
+};
 
 export default function RequestPage() {
 	const [form] = Form.useForm();
@@ -23,12 +37,17 @@ export default function RequestPage() {
 	const [buttonClick, setButtonClick] = useState(false)
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [fields, setFields] = useState<ColumnsType<any>>([]);
-	const [isDispatched, setDispatched] = useState(false);
+	const [selectedRecord, setSelectedRecord] = useState<string>("");
+	const[rejectReason, setRejectionReason] = useState<string>("");
+	// const [isDispatched, setDispatched] = useState(false);
+	const isDispatched = useRef(false);
 
 	const [tableData, setTableData] = useState<any[]>([]);
+	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [bulkUploadActive, setBulkUploadActive] = useState<boolean>(true);
 	const record = useAppStore((state) => state.selectedRecord);
 	const [name, setName] = useState<string>("");
+	const role = useAppStore((state) => state.session?.role);
 
 	useEffect(() => {
 		async function getFields() {
@@ -40,29 +59,57 @@ export default function RequestPage() {
 				const assignedTo = response?.assignedToExists;
 				setBulkUploadActive(!assignedTo);
 				setName(response?.name);
-				if (Array.isArray(templateVars)) {
-					const columns: ColumnsType<any> = templateVars
-						.filter((col) => col.showOnExcel)
-						.map((col) => ({
-							title: col.name,
-							dataIndex: col.name,
-							key: col.name
-						}));
 
-					columns.push({
-						title: "Actions",
-						key: "actions",
-						render: (_: unknown, record: any) => (
-							<>
-								<Button type="link" onClick={() => handlePreview(record?.id, id)}>Preview</Button>
-								{
-									isDispatched == false && (
-										<Button type="link" danger onClick={() => handleDocDelete(record?.id)}>Delete</Button>
-									)
-								}
-							</>
-						),
-					});
+				if (Array.isArray(templateVars)) {
+					const columns: ColumnsType<any> = [
+						...templateVars
+							.filter((col) => col.showOnExcel)
+							.map((col) => ({
+								title: col.name,
+								dataIndex: col.name,
+								key: col.name,
+							})),
+						{
+							title: "Status",
+							dataIndex: "signStatus",
+							render: (status: number) => {
+								const { color, label } = statusMap[status] || {};
+								return <Tag color={color}>{label}</Tag>;
+							},
+						},
+						{
+							title: "Rejected Reason",
+							dataIndex: "rejectionReason",
+							key: "rejectionReason",
+						},
+						{
+							title: "Signed Date",
+							dataIndex: "signedDate",
+							key: "signedDate",
+							render: (date: string) => date ? new Date(date).toLocaleDateString() : "-",
+						},
+						{
+							title: "Actions",
+							key: "actions",
+							render: (_: unknown, record: any) => {
+								const canReject = isDispatched.current == true && role == 2 && record?.signStatus !== 2;
+								const canDelete = isDispatched.current == false;
+
+								return (
+									<>
+										<Button type="link" onClick={() => handlePreview(record?.id, id)}>Preview</Button>
+										{canReject && (
+											<Button type="link" danger onClick={() => handleReject(record?.id)}>Reject</Button>
+										)}
+										{canDelete && (
+											<Button type="link" danger onClick={() => handleDocDelete(record?.id)}>Delete</Button>
+										)}
+									</>
+								);
+							},
+						},
+					];
+
 					setFields(columns);
 				} else {
 					console.error("templateVariables is not an array:", templateVars);
@@ -75,6 +122,17 @@ export default function RequestPage() {
 		getFields();
 	}, []);
 
+
+	const handleReject = async (docId: string) => {
+		try {
+			setSelectedRecord(docId);
+			setIsModalOpen(true);
+		}
+		catch (err) {
+			handleError(err, "Rejection error");
+		}
+	}
+
 	const handleDocDelete = async (docId: string) => {
 		try {
 			console.log(id, docId);
@@ -82,9 +140,15 @@ export default function RequestPage() {
 			if (!id) return;
 			const response = await ReaderClient.deleteDoc(docId, id);
 			const rowDataFromBackend = response?.finalOutput;
+			console.log(rowDataFromBackend);
+
 			const data = rowDataFromBackend.map((item: any) => ({
 				id: item.id,
 				...item.data,
+				signStatus: item.signStatus || 0,
+				signedDate: item.signedDate || '',
+				rejectionReason: item.rejectionReason || '',
+				url: item.url || '',
 			}));
 			setTableData(data);
 		} catch (err) {
@@ -150,26 +214,31 @@ export default function RequestPage() {
 		return message.error(fallbackMsg);
 	};
 
+	async function onloadFunction() {
+		try {
+			if (!id) return;
+			const response = await ReaderClient.getAllDoc(id);
+			const rowDataFromBackend = response?.finalOutput;
+			// setDispatched(response?.isDispatched);
+			isDispatched.current = response?.isDispatched;
+
+			const data = rowDataFromBackend.map((item: any) => ({
+				id: item.id,
+				...item.data,
+				signStatus: item.signStatus ?? 0,
+				signedDate: item.signedDate || '',
+				rejectionReason: item.rejectionReason || '',
+				url: item.url || '',
+			}));
+
+			setTableData(data);
+		}
+		catch (err) {
+			handleError(err, "Failed to save template");
+		}
+	}
 
 	useEffect(() => {
-		async function onloadFunction() {
-			try {
-				if (!id) return;
-				const response = await ReaderClient.getAllDoc(id);
-				const rowDataFromBackend = response?.finalOutput;
-				setDispatched(response?.isDispatched || false);
-				const data = rowDataFromBackend.map((item: any) => ({
-					id: item.id,
-					...item.data,
-				}));
-
-				setTableData(data);
-			}
-			catch (err) {
-				handleError(err, "Failed to save template");
-			}
-		}
-
 		onloadFunction();
 	}, []);
 
@@ -184,6 +253,7 @@ export default function RequestPage() {
 			if (!id) return;
 			const response = await ReaderClient.handleBulkUpload(formData, id);
 			const rowDataFromBackend = response?.finalOutput;
+			console.log(rowDataFromBackend);
 
 			const data = rowDataFromBackend.map((item: any) => ({
 				id: item.id,
@@ -196,6 +266,32 @@ export default function RequestPage() {
 			handleError(err, "Failed to save template");
 		}
 	}
+
+	const handleCancel = () => {
+        try {
+            setIsModalOpen(false);
+        }
+        catch (err) {
+            handleError("Failed to cancel");
+        }
+    }
+
+	const handleOk = async () => {
+        try {
+            if (!id)
+				return;
+			await OfficerClient.rejectOne(id, selectedRecord, rejectReason);
+			onloadFunction();
+			message.success("Template Rejected");
+			setIsModalOpen(false);
+			setRejectionReason("");
+			setSelectedRecord("");
+			onloadFunction();
+        }
+        catch (err) {
+            handleError("Failed to reject");
+        }
+    }
 
 	return (
 		<MainAreaLayout
@@ -242,6 +338,26 @@ export default function RequestPage() {
 					</Flex>
 				</Card>
 			)}
+
+			{
+				isModalOpen && (
+					<Modal
+						title="Rejection Reason"
+						closable={{ 'aria-label': 'Custom Close Button' }}
+						open={isModalOpen}
+						onOk={handleOk}
+						onCancel={handleCancel}
+					>
+						<Input.TextArea
+						rows={4}
+						placeholder="Enter Rejection Reason"
+						value={rejectReason}
+						onChange={(e) => setRejectionReason(e.target.value)}
+						>
+						</Input.TextArea>
+					</Modal>
+				)
+			}
 
 			<CustomTable
 				columns={fields}

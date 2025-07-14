@@ -18,11 +18,9 @@ import {
 const Option = Select;
 import { useEffect, useState } from "react";
 import { DownOutlined } from '@ant-design/icons';
-import type { GetProps } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import socket from "../client/socket";
 
-type SearchProps = GetProps<typeof Input.Search>;
 const { Search } = Input;
 
 interface Template {
@@ -45,8 +43,8 @@ interface Officer {
 const statusMap: Record<number, { color: string, label: string }> = {
     0: { color: 'red', label: 'Unsigned' },
     1: { color: '#1890ff', label: 'Ready to Sign' },
-    2: { color: '#fa541c', label: 'Delegated' },
-    3: { color: '#722ed1', label: 'Rejected' },
+    2: { color: '#fa541c', label: 'Rejected' },
+    3: { color: '#722ed1', label: 'Delegated' },
     4: { color: '#fa8c16', label: 'In Process' },
     5: { color: '#52c41a', label: 'Signed' },
     6: { color: '#13c2c2', label: 'Ready To Dispatch' },
@@ -54,13 +52,16 @@ const statusMap: Record<number, { color: string, label: string }> = {
 };
 
 export default function Requests() {
-    const onSearch: SearchProps['onSearch'] = (value, _e, info) => console.log(info?.source, value);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [officers, setOfficers] = useState<Officer[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selctedOfficerId, setSelectedOfficerId] = useState<string>("");
     const [selectedRecord, setSelectedRecord] = useState<string>("");
+    const [searchValue, setSearchValue] = useState<string>("");
+    const [filteredRow, setFilteredRow] = useState<Template[]>([]);
+    const [reasonModal, setReasonModal] = useState(false);
+    const [rejectReason, setRejectionReason] = useState<string>("");
     const navigate = useNavigate();
     const [form] = Form.useForm();
     const [row, setRow] = useState<Template[]>([]);
@@ -152,25 +153,41 @@ export default function Requests() {
         }
     }
 
-    const handleSign = (id : string) => {
-        try{
+    const handleSign = (id: string) => {
+        try {
             console.log(id);
         }
-        catch(err){
+        catch (err) {
             handleError(err, "Failed to Sign");
         }
     }
 
-    const handleDelegate = (id : string) => {
-        try{
-
+    const handleDelegate = (id: string) => {
+        try {
+            console.log(id);
         }
-        catch(err){
+        catch (err) {
+            handleError(err, "Failed to delegate");
+        }
+    }
+
+    const handleRejectAll = async (id: string) => {
+        try {
+            setSelectedRecord(id);
+            setReasonModal(true);
+        }
+        catch (err) {
             handleError(err, "Failed to delegate");
         }
     }
 
     const getActions = (record: Template) => {
+        const totalDocs = record?.data?.length || 0;
+        const rejectedCount = record?.data?.filter(d => d.rejectionReason)?.length || 0;
+
+        if (totalDocs > 0 && rejectedCount === totalDocs && role == 2) {
+            return <Tag color="red">Rejected</Tag>;
+        }
         if (role === 3) {
             const items: MenuProps['items'] = [
                 {
@@ -189,7 +206,7 @@ export default function Requests() {
             }
 
             if (record?.signStatus == 0) {
-                items?.push({
+                items.push({
                     key: 'delete',
                     label: 'Delete',
                     danger: true,
@@ -208,14 +225,8 @@ export default function Requests() {
                 </Dropdown>
             );
         }
-        else if(role === 2){
-            const items: MenuProps['items'] = [
-                {
-                    key: 'clone',
-                    label: 'Clone',
-                    onClick: () => cloneTemplate(record.id),
-                },
-            ];
+        else if (role === 2) {
+            const items: MenuProps['items'] = [];
 
             if (record?.assignedTo) {
                 items.push({
@@ -230,6 +241,24 @@ export default function Requests() {
                     key: 'delegate',
                     label: 'delegate',
                     onClick: () => handleDelegate(record?.id),
+                })
+            }
+
+            if (record?.signStatus == 0) {
+                items.push({
+                    key: 'delete',
+                    label: 'Delete',
+                    danger: true,
+                    onClick: () => deleteTemplate(record.id),
+                })
+            }
+
+            if (record?.signStatus == 1) {
+                items.push({
+                    key: 'rejectAll',
+                    label: 'Reject All',
+                    danger: true,
+                    onClick: () => handleRejectAll(record?.id)
                 })
             }
 
@@ -249,6 +278,8 @@ export default function Requests() {
     async function getAll() {
         try {
             const response = await ReaderClient.allTemplates();
+            console.log(response);
+
             setRow(response?.templatesData);
         }
         catch (err) {
@@ -291,6 +322,15 @@ export default function Requests() {
         onload();
     }, []);
 
+    const showRejectedDocs = async (id: string) => {
+        try {
+            console.log(id);
+        }
+        catch (err) {
+            handleError(err, "Error in showing rejected documents");
+        }
+    }
+
     const columns = [
         {
             title: 'Title',
@@ -314,7 +354,9 @@ export default function Requests() {
             render: (_: any, record: Template) => {
                 const rejectedCount = record.data?.filter(d => d.rejectionReason)?.length || 0;
                 return (
-                    rejectedCount
+                    <Button type="link" onClick={() => showRejectedDocs(record?.id)}>
+                        {rejectedCount}
+                    </Button>
                 );
             },
         },
@@ -383,13 +425,52 @@ export default function Requests() {
         }
     };
 
+    useEffect(() => {
+        if (searchValue === "") {
+            setFilteredRow(row);
+        }
+    }, [searchValue, row]);
+
+    const onSearch = (value: string) => {
+        try {
+            setSearchValue(value);
+            const filteredData = row.filter((item) => {
+                return item?.templateName?.toLowerCase().includes(value.toLowerCase());
+            })
+            setFilteredRow(filteredData);
+        }
+        catch (err) {
+            handleError(err, "An error occured");
+        }
+    }
+
+    const handleCancell = () => {
+        try {
+            setReasonModal(false);
+            setRejectionReason("");
+            setReasonModal(false);
+        }
+        catch (err) {
+            handleError(err, "An error occured");
+        }
+    }
+
+    const handleRejectionOk = async () => {
+        try {
+            await OfficerClient.rejectAll(selectedRecord, rejectReason);
+        }
+        catch (err) {
+            handleError(err, "Error in rejection");
+        }
+    }
+
     return (
         <>
             <MainAreaLayout
                 title="Court Management"
                 extra={
                     <>
-                        <Search placeholder="input search text" onSearch={onSearch} style={{ width: 200 }} />
+                        <Search placeholder="input search text" onSearch={onSearch} style={{ width: 200 }} allowClear onChange={(e) => onSearch(e.target.value)} />
                         <Button
                             type="primary"
                             onClick={() => {
@@ -406,7 +487,7 @@ export default function Requests() {
             >
                 <CustomTable
                     columns={columns}
-                    data={row}
+                    data={filteredRow}
                     serialNumberConfig={{ name: "", show: true }}
                     key="_id"
                 />
@@ -484,6 +565,26 @@ export default function Requests() {
                                     ))
                                 }
                             </Select>
+                        </Modal>
+                    )
+                }
+
+                {
+                    reasonModal && (
+                        <Modal
+                            title="Rejection Reason"
+                            closable={{ 'aria-label': 'Custom Close Button' }}
+                            open={reasonModal}
+                            onOk={handleRejectionOk}
+                            onCancel={handleCancell}
+                        >
+                            <Input.TextArea
+                                rows={4}
+                                placeholder="Enter Rejection Reason"
+                                value={rejectReason}
+                                onChange={(e) => setRejectionReason(e.target.value)}
+                            >
+                            </Input.TextArea>
                         </Modal>
                     )
                 }

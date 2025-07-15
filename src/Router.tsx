@@ -4,6 +4,7 @@ import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectRoute";
 import Requests from "./pages/Requests.tsx";
 import Signatures from "./pages/Signatures.tsx";
+import RejectedDocPreview from './pages/RejectedDocument.tsx'
 import { CourtManagement } from "./pages/CourtManagement.tsx";
 import { CourtUsers } from "./pages/CourtUsers.tsx";
 import RequestPage from "./pages/Request.tsx";
@@ -33,6 +34,10 @@ export function Router() {
 							<Route
 								path="request/:id"
 								element={<RequestPage />}
+							/>
+							<Route
+								path="rejectedReq/:id"
+								element={<RejectedDocPreview/>}
 							/>
 							<Route path="signatures" element={<Signatures />} />
 							<Route

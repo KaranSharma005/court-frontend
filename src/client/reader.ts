@@ -90,4 +90,8 @@ export class ReaderC extends Client {
         await this.request("POST",`/signatures/sendForSign/${templateID}/${id}`);
     }
     
+    async rejectedList(tempId : string){
+        const res = await this.request("GET", `/template/rejected/${tempId}`);
+        return res.data;
+    }
 }

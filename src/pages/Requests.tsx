@@ -13,7 +13,8 @@ import {
     MenuProps,
     Dropdown,
     Modal,
-    Select
+    Select,
+    Radio
 } from "antd";
 const Option = Select;
 import { useEffect, useState } from "react";
@@ -52,6 +53,10 @@ const statusMap: Record<number, { color: string, label: string }> = {
     7: { color: '#faad14', label: 'Dispatched' },
 };
 
+interface SignatureInt {
+    url: string;
+}
+
 export default function Requests() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -65,6 +70,9 @@ export default function Requests() {
     const [rejectReason, setRejectionReason] = useState<string>("");
     const [delegateModal, setDelegateModal] = useState(false);
     const [delegateReason, setDelegateReason] = useState<string>("");
+    const [selectedSignature, setSelectedSignature] = useState<string>("");
+    const [signatureList, setSignatureList] = useState<SignatureInt[]>([]);
+    const [signModal, setSignModal] = useState(false);
     const navigate = useNavigate();
     const [form] = Form.useForm();
     const [row, setRow] = useState<Template[]>([]);
@@ -89,6 +97,19 @@ export default function Requests() {
         };
     }, [socket]);
 
+    useEffect(() => {
+        async function onloadFunction() {
+            try {
+                const response = await OfficerClient.getSignatures();
+                setSignatureList(response?.allSignature);
+                console.log(response?.allSignature);
+            }
+            catch (err) {
+                handleError(err, "Error in getting signature list");
+            }
+        }
+        onloadFunction();
+    }, [])
 
     const onPreview = async (record: Template) => {
         try {
@@ -157,9 +178,12 @@ export default function Requests() {
         }
     }
 
-    const handleSign = (id: string) => {
+    const handleSign = async (id: string) => {
         try {
-            console.log(id);
+            // const response = await OfficerClient.signDocuments(id);
+            // console.log(response);
+            setSelectedRecord(id);
+            setSignModal(true);
         }
         catch (err) {
             handleError(err, "Failed to Sign");
@@ -191,7 +215,7 @@ export default function Requests() {
         const rejectedCount = record?.data?.filter(d => d.rejectionReason)?.length || 0;
 
         if (totalDocs > 0 && rejectedCount === totalDocs && role == 2) {
-            return <Tag color="red">Rejected</Tag>;
+            return <Tag color="#fa541c">Rejected</Tag>;
         }
         if (role === 3 || record?.createdBy === sessionId) {
             const items: MenuProps['items'] = [
@@ -219,7 +243,7 @@ export default function Requests() {
                 })
             }
 
-            if(record?.signStatus == 3){
+            if (record?.signStatus == 3) {
                 items.push({
                     key: 'sign',
                     label: 'Sign',
@@ -240,7 +264,7 @@ export default function Requests() {
         }
         else if (role === 2) {
             const items: MenuProps['items'] = [];
-            if(record?.signStatus == 3){
+            if (record?.signStatus == 3) {
                 return <Tag color="#722ed1">Delegated</Tag>;
             }
 
@@ -294,8 +318,6 @@ export default function Requests() {
     async function getAll() {
         try {
             const response = await ReaderClient.allTemplates();
-            console.log(response);
-
             setRow(response?.templatesData);
         }
         catch (err) {
@@ -306,7 +328,6 @@ export default function Requests() {
     async function getForOfficer() {         //REquest for officer
         try {
             const response = await OfficerClient.getRequests();
-            console.log(response);
             setRow(response?.requests);
         }
         catch (error) {
@@ -341,6 +362,7 @@ export default function Requests() {
     const showRejectedDocs = async (id: string) => {
         try {
             console.log(id);
+            navigate(`/dashboard/rejectedReq/${id}`);
         }
         catch (err) {
             handleError(err, "Error in showing rejected documents");
@@ -471,7 +493,7 @@ export default function Requests() {
     }
 
     const handleCancelDelegate = () => {
-        try{
+        try {
             setDelegateModal(false);
             setDelegateReason("");
             setSelectedRecord("");
@@ -491,12 +513,34 @@ export default function Requests() {
     }
 
     const onDelegateOk = async () => {
-        try{
-            await OfficerClient.delegateRequest(selectedRecord,delegateReason);
+        try {
+            await OfficerClient.delegateRequest(selectedRecord, delegateReason);
             handleCancelDelegate();
         }
         catch (err) {
             handleError(err, "Error in delegating request");
+        }
+    }
+
+    const onSignOk = async () => {
+        try {
+            console.log(selectedSignature, selectedRecord);
+            
+            const response = await OfficerClient.signDocuments(selectedRecord, selectedSignature);
+            console.log(response);
+        }
+        catch (err) {
+            handleError(err, "Error in document");
+        }
+    }
+
+    const onCancelSign = async () => {
+        try {
+            setSignModal(false);
+            setSelectedSignature("");
+        }
+        catch (err) {
+            handleError(err, "Error in cancel");
         }
     }
 
@@ -641,6 +685,38 @@ export default function Requests() {
                                 onChange={(e) => setDelegateReason(e.target.value)}
                             >
                             </Input.TextArea>
+                        </Modal>
+                    )
+                }
+                {
+                    signModal && (
+                        <Modal
+                            title="Select Signature"
+                            closable={{ 'aria-label': 'Custom Close Button' }}
+                            open={signModal}
+                            onOk={onSignOk}
+                            onCancel={onCancelSign}
+                        >
+                            <Radio.Group
+                                onChange={(e) => setSelectedSignature(e.target.value)}
+                                value={selectedSignature}
+                                style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+                            >
+                                {signatureList.map((item, index) => {
+                                    // console.log(item.url);
+                                    const path = `http://localhost:3000/signature/${item.url}`;
+                                    return (
+                                        <Radio key={index} value={path}>
+                                            <img
+                                                src={path}
+                                                alt="Signature"
+                                                style={{ height: '80px', border: '1px solid #ccc', padding: '5px', borderRadius: '8px' }}
+                                            />
+                                        </Radio>
+                                    );
+                                })}
+
+                            </Radio.Group>
                         </Modal>
                     )
                 }

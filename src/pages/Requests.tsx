@@ -21,7 +21,6 @@ import { useEffect, useState } from "react";
 import { DownOutlined } from '@ant-design/icons';
 import { UploadOutlined } from '@ant-design/icons';
 import socket from "../client/socket";
-
 const { Search } = Input;
 
 interface Template {
@@ -211,8 +210,6 @@ export default function Requests() {
 
     const handleSign = async (id: string) => {
         try {
-            // const response = await OfficerClient.signDocuments(id);
-            // console.log(response);
             setSelectedRecord(id);
             setSignModal(true);
         }
@@ -303,7 +300,7 @@ export default function Requests() {
                 return <Tag color="#52c41a">Signed</Tag>
             }
 
-            if (record?.assignedTo) {
+            if (record?.assignedTo && record?.signStatus == 1) {
                 items.push({
                     key: 'sign',
                     label: 'Sign',
@@ -383,7 +380,6 @@ export default function Requests() {
         async function onload() {
             try {
                 const response = await userClient.getOfficers();
-
                 const officersList = response?.officers;
                 setOfficers(officersList);
             }
@@ -541,6 +537,8 @@ export default function Requests() {
     const handleRejectionOk = async () => {
         try {
             await OfficerClient.rejectAll(selectedRecord, rejectReason);
+            setReasonModal(false);
+            getAll();
         }
         catch (err) {
             handleError(err, "Error in rejection");
@@ -559,8 +557,7 @@ export default function Requests() {
 
     const onSignOk = async () => {
         try {
-            if (!selectedSignature)
-                return;
+            if (!selectedSignature) return;
             const { id, url } = selectedSignature;
             const response = await OfficerClient.signDocuments(selectedRecord, url, id);
             console.log(response);
@@ -607,7 +604,6 @@ export default function Requests() {
                     serialNumberConfig={{ name: "", show: true }}
                     key="_id"
                 />
-
                 <Drawer
                     placement="right"
                     width={400}
@@ -626,7 +622,6 @@ export default function Requests() {
                         >
                             <Input />
                         </Form.Item>
-
                         <Form.Item
                             label="Upload Template"
                             name="templateFile"
@@ -644,21 +639,18 @@ export default function Requests() {
                                 </Button>
                             </Upload>
                         </Form.Item>
-
                         <Form.Item
                             label="Description"
                             name="description"
                         >
                             <Input />
                         </Form.Item>
-
                         <Button type="primary" block htmlType="submit">
                             Submit
                         </Button>
                     </Form>
                 </Drawer>
-                {
-                    isModalOpen && (
+                {isModalOpen && (
                         <Modal
                             title="Select Whon to send Request"
                             closable={{ 'aria-label': 'Custom Close Button' }}
@@ -666,12 +658,8 @@ export default function Requests() {
                             onOk={handleOk}
                             onCancel={handleCancel}
                         >
-                            <Select
-                                style={{ width: '100%' }}
-                                placeholder="Select Officer"
-                                onChange={(value) => {
-                                    setSelectedOfficerId(value);
-                                }}
+                            <Select style={{ width: '100%' }} placeholder="Select Officer"
+                                onChange={(value) => { setSelectedOfficerId(value); }}
                             >
                                 {
                                     officers?.map((officer) => (
@@ -685,8 +673,7 @@ export default function Requests() {
                     )
                 }
 
-                {
-                    reasonModal && (
+                {reasonModal && (
                         <Modal
                             title="Rejection Reason"
                             closable={{ 'aria-label': 'Custom Close Button' }}
@@ -694,10 +681,7 @@ export default function Requests() {
                             onOk={handleRejectionOk}
                             onCancel={handleCancell}
                         >
-                            <Input.TextArea
-                                rows={4}
-                                placeholder="Enter Rejection Reason"
-                                value={rejectReason}
+                            <Input.TextArea rows={4} placeholder="Enter Rejection Reason" value={rejectReason}
                                 onChange={(e) => setRejectionReason(e.target.value)}
                             >
                             </Input.TextArea>
@@ -705,8 +689,7 @@ export default function Requests() {
                     )
                 }
 
-                {
-                    delegateModal && (
+                {delegateModal && (
                         <Modal
                             title="Delegation Reason"
                             closable={{ 'aria-label': 'Custom Close Button' }}
@@ -714,18 +697,14 @@ export default function Requests() {
                             onOk={onDelegateOk}
                             onCancel={handleCancelDelegate}
                         >
-                            <Input.TextArea
-                                rows={4}
-                                placeholder="Enter Rejection Reason"
-                                value={delegateReason}
+                            <Input.TextArea rows={4} placeholder="Enter Rejection Reason" value={delegateReason}
                                 onChange={(e) => setDelegateReason(e.target.value)}
                             >
                             </Input.TextArea>
                         </Modal>
                     )
                 }
-                {
-                    signModal && (
+                {signModal && (
                         <Modal
                             title="Select Signature"
                             closable={{ 'aria-label': 'Custom Close Button' }}
@@ -745,12 +724,7 @@ export default function Requests() {
                                             <img
                                                 src={imageUrl}
                                                 alt={`Signature ${index + 1}`}
-                                                style={{
-                                                    height: '80px',
-                                                    border: '1px solid #ccc',
-                                                    padding: '5px',
-                                                    borderRadius: '8px',
-                                                }}
+                                                style={{ height: '80px', border: '1px solid #ccc',padding: '5px',borderRadius: '8px',}}
                                             />
                                         </Radio>
                                     );

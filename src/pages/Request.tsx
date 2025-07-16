@@ -98,8 +98,8 @@ export default function RequestPage() {
 
 								return (
 									<>
-										<Button type="link" onClick={() => handlePreview(record?.id, id)}>Preview</Button>
-										{canReject && (
+										<Button type="link" onClick={() => handlePreview(record, id)}>Preview</Button>
+										{canReject && record?.signStatus != 5 && (
 											<Button type="link" danger onClick={() => handleReject(record?.id)}>Reject</Button>
 										)}
 										{canDelete && (
@@ -157,10 +157,18 @@ export default function RequestPage() {
 		}
 	}
 
-	const handlePreview = async (id: string, templateID: string) => {
+	const handlePreview = async (record: any, templateID: string) => {
 		try {
-			const previewURL = `http://localhost:3000/template/preview/${templateID}/${id}`;
-			window.open(previewURL, '');
+			if (record?.signStatus != 5) {
+				const id = record?.id;
+				const previewURL = `http://localhost:3000/template/preview/${templateID}/${id}`;
+				window.open(previewURL, '');
+			}
+			else {
+				const id = record?.id;
+				const previewURL = `http://localhost:3000/template/sign-preview/${templateID}/${id}`;
+				window.open(previewURL, '');
+			}
 		}
 		catch (error) {
 			handleError("Failed to preview template");
@@ -254,11 +262,14 @@ export default function RequestPage() {
 			if (!id) return;
 			const response = await ReaderClient.handleBulkUpload(formData, id);
 			const rowDataFromBackend = response?.finalOutput;
-			console.log(rowDataFromBackend);
 
 			const data = rowDataFromBackend.map((item: any) => ({
 				id: item.id,
 				...item.data,
+				signStatus: item.signStatus ?? 0,
+				signedDate: item.signedDate || '',
+				rejectionReason: item.rejectionReason || '',
+				url: item.url || '',
 			}));
 
 			setTableData(data);
@@ -334,7 +345,7 @@ export default function RequestPage() {
 								setSelectedFile(null)
 								setFileList([]);
 							}
-						}
+							}
 						>
 							<Button icon={<UploadOutlined />} >
 								Click to Upload

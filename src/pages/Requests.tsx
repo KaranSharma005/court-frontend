@@ -55,6 +55,7 @@ const statusMap: Record<number, { color: string, label: string }> = {
 
 interface SignatureInt {
     url: string;
+    id: string;
 }
 
 export default function Requests() {
@@ -70,7 +71,7 @@ export default function Requests() {
     const [rejectReason, setRejectionReason] = useState<string>("");
     const [delegateModal, setDelegateModal] = useState(false);
     const [delegateReason, setDelegateReason] = useState<string>("");
-    const [selectedSignature, setSelectedSignature] = useState<string>("");
+    const [selectedSignature, setSelectedSignature] = useState<SignatureInt | null>(null);
     const [signatureList, setSignatureList] = useState<SignatureInt[]>([]);
     const [signModal, setSignModal] = useState(false);
     const navigate = useNavigate();
@@ -96,6 +97,36 @@ export default function Requests() {
             socket.off("signature-request", handleDocumentAssigned);
         };
     }, [socket]);
+
+    useEffect(() => {
+        const handleProcessing = (data: string) => {
+            try {
+                setRow((prevRows) =>
+                    prevRows.map((row) =>
+                        row.id === data ? { ...row, signStatus: 4 } : row
+                    )
+                );
+                setSignModal(false);
+            }
+            catch (err) {
+                handleError(err, "Error Occured");
+            }
+        }
+        socket.on("processing-sign", handleProcessing);
+        return () => {
+            socket.off("processing-sign", handleProcessing)
+        }
+    }, [socket]);
+
+    useEffect(() => {
+        const handleComplete = (data : string) => {
+            setRow((prev) => prev.map((row) => row.id == data ? {...row, signStatus : 5} : row))
+        }
+        socket.on("sign-complete", handleComplete);
+        return () => {
+            socket.off("sign-complete", handleComplete);
+        }
+    },[socket])
 
     useEffect(() => {
         async function onloadFunction() {
@@ -266,6 +297,10 @@ export default function Requests() {
             const items: MenuProps['items'] = [];
             if (record?.signStatus == 3) {
                 return <Tag color="#722ed1">Delegated</Tag>;
+            }
+
+            if (record?.signStatus == 5) {
+                return <Tag color="#52c41a">Signed</Tag>
             }
 
             if (record?.assignedTo) {
@@ -524,9 +559,10 @@ export default function Requests() {
 
     const onSignOk = async () => {
         try {
-            console.log(selectedSignature, selectedRecord);
-            
-            const response = await OfficerClient.signDocuments(selectedRecord, selectedSignature);
+            if (!selectedSignature)
+                return;
+            const { id, url } = selectedSignature;
+            const response = await OfficerClient.signDocuments(selectedRecord, url, id);
             console.log(response);
         }
         catch (err) {
@@ -537,7 +573,7 @@ export default function Requests() {
     const onCancelSign = async () => {
         try {
             setSignModal(false);
-            setSelectedSignature("");
+            setSelectedSignature(null);
         }
         catch (err) {
             handleError(err, "Error in cancel");
@@ -703,20 +739,24 @@ export default function Requests() {
                                 style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
                             >
                                 {signatureList.map((item, index) => {
-                                    // console.log(item.url);
-                                    const path = `http://localhost:3000/signature/${item.url}`;
+                                    const imageUrl = `http://localhost:3000/signature/${item.url}`;
                                     return (
-                                        <Radio key={index} value={path}>
+                                        <Radio key={index} value={item}>
                                             <img
-                                                src={path}
-                                                alt="Signature"
-                                                style={{ height: '80px', border: '1px solid #ccc', padding: '5px', borderRadius: '8px' }}
+                                                src={imageUrl}
+                                                alt={`Signature ${index + 1}`}
+                                                style={{
+                                                    height: '80px',
+                                                    border: '1px solid #ccc',
+                                                    padding: '5px',
+                                                    borderRadius: '8px',
+                                                }}
                                             />
                                         </Radio>
                                     );
                                 })}
-
                             </Radio.Group>
+
                         </Modal>
                     )
                 }

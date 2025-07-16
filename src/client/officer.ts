@@ -35,8 +35,9 @@ export class OfficerC extends Client {
     return res.data;
   }
 
-  async signDocuments(tempId: string, url : string) {
-    const res = await this.request("POST", `/signatures/sign/${tempId}`,{
+  async signDocuments(tempId: string, url : string, id : string) {
+    url = `http://localhost:3000/signature/${url}`;
+    const res = await this.request("POST", `/signatures/sign/${tempId}/${id}`,{
       data : {
         url
       }

@@ -41,16 +41,16 @@ interface Officer {
     email: string
 }
 
-const statusMap: Record<number, { color: string, label: string }> = {
-    0: { color: 'red', label: 'Unsigned' },
-    1: { color: '#1890ff', label: 'Ready to Sign' },
-    2: { color: '#fa541c', label: 'Rejected' },
-    3: { color: '#722ed1', label: 'Delegated' },
-    4: { color: '#fa8c16', label: 'In Process' },
-    5: { color: '#52c41a', label: 'Signed' },
-    6: { color: '#13c2c2', label: 'Ready To Dispatch' },
-    7: { color: '#faad14', label: 'Dispatched' },
-};
+// const statusMap: Record<number, { color: string, label: string }> = {
+//     0: { color: 'red', label: 'Unsigned' },
+//     1: { color: '#1890ff', label: 'Ready to Sign' },
+//     2: { color: '#fa541c', label: 'Rejected' },
+//     3: { color: '#722ed1', label: 'Delegated' },
+//     4: { color: '#fa8c16', label: 'In Process' },
+//     5: { color: '#52c41a', label: 'Signed' },
+//     6: { color: '#13c2c2', label: 'Ready To Dispatch' },
+//     7: { color: '#faad14', label: 'Dispatched' },
+// };
 
 interface SignatureInt {
     url: string;
@@ -73,12 +73,24 @@ export default function Requests() {
     const [selectedSignature, setSelectedSignature] = useState<SignatureInt | null>(null);
     const [signatureList, setSignatureList] = useState<SignatureInt[]>([]);
     const [signModal, setSignModal] = useState(false);
+    const [signedNumber, setSignedNumber] = useState<number>(0);
     const navigate = useNavigate();
     const [form] = Form.useForm();
     const [row, setRow] = useState<Template[]>([]);
     const setRecord = useAppStore().setRecord;
     const role = useAppStore()?.session?.role;
     const sessionId = useAppStore((state) => state.session?.userId);
+
+    const statusMap: Record<number, { color: string, label: string }> = {
+        0: { color: 'red', label: 'Unsigned' },
+        1: { color: '#1890ff', label: 'Ready to Sign' },
+        2: { color: '#fa541c', label: 'Rejected' },
+        3: { color: '#722ed1', label: 'Delegated' },
+        4: { color: '#fa8c16', label: 'In Process' },
+        5: { color: '#52c41a', label: 'Signed' },
+        6: { color: '#13c2c2', label: 'Ready To Dispatch' },
+        7: { color: '#faad14', label: 'Dispatched' },
+    };
 
     useEffect(() => {
         const handleDocumentAssigned = (data: Template) => {
@@ -118,14 +130,25 @@ export default function Requests() {
     }, [socket]);
 
     useEffect(() => {
-        const handleComplete = (data : string) => {
-            setRow((prev) => prev.map((row) => row.id == data ? {...row, signStatus : 5} : row))
+        const handleCount = (data : number) => {
+            setSignedNumber(data);
+        }
+        socket.on("sign-count", handleCount);
+        return () => {
+            socket.off("sign-count", handleCount);
+        }
+    }, [socket])
+
+    useEffect(() => {
+        const handleComplete = (data: string) => {
+            setRow((prev) => prev.map((row) => row.id == data ? { ...row, signStatus: 5 } : row))
+            setSignedNumber(0);
         }
         socket.on("sign-complete", handleComplete);
         return () => {
             socket.off("sign-complete", handleComplete);
         }
-    },[socket])
+    }, [socket])
 
     useEffect(() => {
         async function onloadFunction() {
@@ -438,10 +461,17 @@ export default function Requests() {
             title: 'Request Status',
             dataIndex: 'signStatus',
             render: (status: number) => {
-                const { color, label } = statusMap[status] || {};
-                return <Tag color={color}>{label}</Tag>;
+                const statusObj = statusMap[status];
+                if (!statusObj) return null;
+
+                const label = status == 4
+                    ? `${statusObj.label} (${signedNumber})`
+                    : statusObj.label;
+
+                return <Tag color={statusObj.color}>{label}</Tag>;
             },
         },
+
         {
             title: 'Action',
             key: 'action',
@@ -651,88 +681,88 @@ export default function Requests() {
                     </Form>
                 </Drawer>
                 {isModalOpen && (
-                        <Modal
-                            title="Select Whon to send Request"
-                            closable={{ 'aria-label': 'Custom Close Button' }}
-                            open={isModalOpen}
-                            onOk={handleOk}
-                            onCancel={handleCancel}
+                    <Modal
+                        title="Select Whon to send Request"
+                        closable={{ 'aria-label': 'Custom Close Button' }}
+                        open={isModalOpen}
+                        onOk={handleOk}
+                        onCancel={handleCancel}
+                    >
+                        <Select style={{ width: '100%' }} placeholder="Select Officer"
+                            onChange={(value) => { setSelectedOfficerId(value); }}
                         >
-                            <Select style={{ width: '100%' }} placeholder="Select Officer"
-                                onChange={(value) => { setSelectedOfficerId(value); }}
-                            >
-                                {
-                                    officers?.map((officer) => (
-                                        <Option key={officer?.id} value={officer?.id}>
-                                            {officer.name}
-                                        </Option>
-                                    ))
-                                }
-                            </Select>
-                        </Modal>
-                    )
+                            {
+                                officers?.map((officer) => (
+                                    <Option key={officer?.id} value={officer?.id}>
+                                        {officer.name}
+                                    </Option>
+                                ))
+                            }
+                        </Select>
+                    </Modal>
+                )
                 }
 
                 {reasonModal && (
-                        <Modal
-                            title="Rejection Reason"
-                            closable={{ 'aria-label': 'Custom Close Button' }}
-                            open={reasonModal}
-                            onOk={handleRejectionOk}
-                            onCancel={handleCancell}
+                    <Modal
+                        title="Rejection Reason"
+                        closable={{ 'aria-label': 'Custom Close Button' }}
+                        open={reasonModal}
+                        onOk={handleRejectionOk}
+                        onCancel={handleCancell}
+                    >
+                        <Input.TextArea rows={4} placeholder="Enter Rejection Reason" value={rejectReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
                         >
-                            <Input.TextArea rows={4} placeholder="Enter Rejection Reason" value={rejectReason}
-                                onChange={(e) => setRejectionReason(e.target.value)}
-                            >
-                            </Input.TextArea>
-                        </Modal>
-                    )
+                        </Input.TextArea>
+                    </Modal>
+                )
                 }
 
                 {delegateModal && (
-                        <Modal
-                            title="Delegation Reason"
-                            closable={{ 'aria-label': 'Custom Close Button' }}
-                            open={delegateModal}
-                            onOk={onDelegateOk}
-                            onCancel={handleCancelDelegate}
+                    <Modal
+                        title="Delegation Reason"
+                        closable={{ 'aria-label': 'Custom Close Button' }}
+                        open={delegateModal}
+                        onOk={onDelegateOk}
+                        onCancel={handleCancelDelegate}
+                    >
+                        <Input.TextArea rows={4} placeholder="Enter Rejection Reason" value={delegateReason}
+                            onChange={(e) => setDelegateReason(e.target.value)}
                         >
-                            <Input.TextArea rows={4} placeholder="Enter Rejection Reason" value={delegateReason}
-                                onChange={(e) => setDelegateReason(e.target.value)}
-                            >
-                            </Input.TextArea>
-                        </Modal>
-                    )
+                        </Input.TextArea>
+                    </Modal>
+                )
                 }
                 {signModal && (
-                        <Modal
-                            title="Select Signature"
-                            closable={{ 'aria-label': 'Custom Close Button' }}
-                            open={signModal}
-                            onOk={onSignOk}
-                            onCancel={onCancelSign}
+                    <Modal
+                        title="Select Signature"
+                        closable={{ 'aria-label': 'Custom Close Button' }}
+                        open={signModal}
+                        onOk={onSignOk}
+                        onCancel={onCancelSign}
+                    >
+                        <Radio.Group
+                            onChange={(e) => setSelectedSignature(e.target.value)}
+                            value={selectedSignature}
+                            style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
                         >
-                            <Radio.Group
-                                onChange={(e) => setSelectedSignature(e.target.value)}
-                                value={selectedSignature}
-                                style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
-                            >
-                                {signatureList.map((item, index) => {
-                                    const imageUrl = `http://localhost:3000/signature/${item.url}`;
-                                    return (
-                                        <Radio key={index} value={item}>
-                                            <img
-                                                src={imageUrl}
-                                                alt={`Signature ${index + 1}`}
-                                                style={{ height: '80px', border: '1px solid #ccc',padding: '5px',borderRadius: '8px',}}
-                                            />
-                                        </Radio>
-                                    );
-                                })}
-                            </Radio.Group>
+                            {signatureList.map((item, index) => {
+                                const imageUrl = `http://localhost:3000/signature/${item.url}`;
+                                return (
+                                    <Radio key={index} value={item}>
+                                        <img
+                                            src={imageUrl}
+                                            alt={`Signature ${index + 1}`}
+                                            style={{ height: '80px', border: '1px solid #ccc', padding: '5px', borderRadius: '8px', }}
+                                        />
+                                    </Radio>
+                                );
+                            })}
+                        </Radio.Group>
 
-                        </Modal>
-                    )
+                    </Modal>
+                )
                 }
             </MainAreaLayout>
         </>

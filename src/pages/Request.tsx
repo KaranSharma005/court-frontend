@@ -135,8 +135,6 @@ export default function RequestPage() {
 
 	const handleDocDelete = async (docId: string) => {
 		try {
-			console.log(id, docId);
-
 			if (!id) return;
 			const response = await ReaderClient.deleteDoc(docId, id);
 			const rowDataFromBackend = response?.finalOutput;

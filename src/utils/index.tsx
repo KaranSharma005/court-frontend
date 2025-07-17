@@ -8,6 +8,7 @@ export interface Template {
     signStatus: number;
     assignedTo: string;
     createdBy: string;
+    signCount: number;
 }
 
 export interface Officer {

@@ -27,7 +27,6 @@ export default function Requests() {
     const [selectedSignature, setSelectedSignature] = useState<SignatureInt | null>(null);
     const [signatureList, setSignatureList] = useState<SignatureInt[]>([]);
     const [signModal, setSignModal] = useState(false);
-    const [signedNumber, setSignedNumber] = useState<number>(0);
     const navigate = useNavigate();
     const [form] = Form.useForm();
     const [row, setRow] = useState<Template[]>([]);
@@ -73,19 +72,26 @@ export default function Requests() {
     }, [socket]);
 
     useEffect(() => {
-        const handleCount = (data: number) => {
-            setSignedNumber(data);
-        }
+        const handleCount = (templateId: string) => {
+            setRow((prevRows) =>
+                prevRows.map((row) => {
+                    if (row.id === templateId) {
+                        return {...row,signCount: (row.signCount || 0) + 1};
+                    }
+                    return row;
+                })
+            );
+        };
         socket.on("sign-count", handleCount);
         return () => {
             socket.off("sign-count", handleCount);
-        }
-    }, [socket])
+        };
+    }, []);
+
 
     useEffect(() => {
         const handleComplete = (data: string) => {
             setRow((prev) => prev.map((row) => row.id == data ? { ...row, signStatus: 5 } : row))
-            setSignedNumber(0);
         }
         socket.on("sign-complete", handleComplete);
         return () => {
@@ -119,6 +125,7 @@ export default function Requests() {
     }
 
     const showAllDocs = (record: Template) => {
+        console.log(record?.signCount);
         setRecord(record);
         navigate(`/dashboard/request/${record.id}`);
     }
@@ -292,10 +299,10 @@ export default function Requests() {
         {
             title: 'Request Status',
             dataIndex: 'signStatus',
-            render: (status: number) => {
+            render: (status: number, record : Template) => {
                 const statusObj = statusMap[status];
                 if (!statusObj) return null;
-                const label = status == 4 ? `${statusObj.label} (${signedNumber})` : statusObj.label;
+                const label = status == 4 ? `${statusObj.label} (${record.signCount})` : statusObj.label;
                 return <Tag color={statusObj.color}>{label}</Tag>;
             },
         },
@@ -305,7 +312,7 @@ export default function Requests() {
             key: 'action',
             render: (_: any, record: Template) =>
                 getActions({
-                    record,role,sessionId,cloneTemplate,sendForSignature,deleteTemplate,handleSign,handleDelegate,handleRejectAll,
+                    record, role, sessionId, cloneTemplate, sendForSignature, deleteTemplate, handleSign, handleDelegate, handleRejectAll,
                 }),
         },
     ];
@@ -492,10 +499,10 @@ export default function Requests() {
                             onChange={(value) => { setSelectedOfficerId(value); }}
                         >
                             {officers?.map((officer) => (
-                                    <Option key={officer?.id} value={officer?.id}>
-                                        {officer.name}
-                                    </Option>
-                                ))
+                                <Option key={officer?.id} value={officer?.id}>
+                                    {officer.name}
+                                </Option>
+                            ))
                             }
                         </Select>
                     </Modal>

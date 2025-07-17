@@ -2,7 +2,7 @@ import MainAreaLayout from "../components/main-layout/main-layout";
 import CustomTable from "../components/CustomTable";
 import { useNavigate } from "react-router";
 import { ReaderClient, useAppStore, userClient, OfficerClient } from '../store';
-import { Button, Input, Form, Drawer, message, Upload, Tag, Modal, Select, Radio } from "antd";
+import { Button, Input, Form, Drawer, message, Upload, Tag, Modal, Select, Radio, Progress, Flex } from "antd";
 const Option = Select;
 import { useEffect, useState } from "react";
 import { UploadOutlined } from '@ant-design/icons';
@@ -37,7 +37,6 @@ export default function Requests() {
     useEffect(() => {
         const handleDocumentAssigned = (data: Template) => {
             try {
-                console.log("data", data);
                 setRow((prev) => [...prev, data]);
             }
             catch (err) {
@@ -303,7 +302,12 @@ export default function Requests() {
                 const statusObj = statusMap[status];
                 if (!statusObj) return null;
                 const label = status == 4 ? `${statusObj.label} (${record.signCount})` : statusObj.label;
-                return <Tag color={statusObj.color}>{label}</Tag>;
+                return (<>
+                <Flex>
+                <Tag color={statusObj.color}>{label}</Tag>
+                {status == 4 && (<Progress type="circle" size={30} percent={(record?.signCount/record?.data?.length)*100} />)}
+                </Flex>
+                </>)
             },
         },
 

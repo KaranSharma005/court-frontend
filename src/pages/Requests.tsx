@@ -2,60 +2,14 @@ import MainAreaLayout from "../components/main-layout/main-layout";
 import CustomTable from "../components/CustomTable";
 import { useNavigate } from "react-router";
 import { ReaderClient, useAppStore, userClient, OfficerClient } from '../store';
-import {
-    Button,
-    Input,
-    Form,
-    Drawer,
-    message,
-    Upload,
-    Tag,
-    MenuProps,
-    Dropdown,
-    Modal,
-    Select,
-    Radio
-} from "antd";
+import { Button, Input, Form, Drawer, message, Upload, Tag, Modal, Select, Radio } from "antd";
 const Option = Select;
 import { useEffect, useState } from "react";
-import { DownOutlined } from '@ant-design/icons';
 import { UploadOutlined } from '@ant-design/icons';
 import socket from "../client/socket";
 const { Search } = Input;
-
-interface Template {
-    id: string;
-    templateName: string;
-    data: {
-        rejectionReason?: string;
-    }[];
-    createdAt: string;
-    signStatus: number;
-    assignedTo: string;
-    createdBy: string;
-}
-
-interface Officer {
-    id: string
-    name: string,
-    email: string
-}
-
-// const statusMap: Record<number, { color: string, label: string }> = {
-//     0: { color: 'red', label: 'Unsigned' },
-//     1: { color: '#1890ff', label: 'Ready to Sign' },
-//     2: { color: '#fa541c', label: 'Rejected' },
-//     3: { color: '#722ed1', label: 'Delegated' },
-//     4: { color: '#fa8c16', label: 'In Process' },
-//     5: { color: '#52c41a', label: 'Signed' },
-//     6: { color: '#13c2c2', label: 'Ready To Dispatch' },
-//     7: { color: '#faad14', label: 'Dispatched' },
-// };
-
-interface SignatureInt {
-    url: string;
-    id: string;
-}
+import { Template, Officer, SignatureInt, statusMap } from '../utils/index';
+import { getActions, handleError } from "../utils/requestUtils";
 
 export default function Requests() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -80,17 +34,6 @@ export default function Requests() {
     const setRecord = useAppStore().setRecord;
     const role = useAppStore()?.session?.role;
     const sessionId = useAppStore((state) => state.session?.userId);
-
-    const statusMap: Record<number, { color: string, label: string }> = {
-        0: { color: 'red', label: 'Unsigned' },
-        1: { color: '#1890ff', label: 'Ready to Sign' },
-        2: { color: '#fa541c', label: 'Rejected' },
-        3: { color: '#722ed1', label: 'Delegated' },
-        4: { color: '#fa8c16', label: 'In Process' },
-        5: { color: '#52c41a', label: 'Signed' },
-        6: { color: '#13c2c2', label: 'Ready To Dispatch' },
-        7: { color: '#faad14', label: 'Dispatched' },
-    };
 
     useEffect(() => {
         const handleDocumentAssigned = (data: Template) => {
@@ -117,7 +60,7 @@ export default function Requests() {
                         row.id === data ? { ...row, signStatus: 4 } : row
                     )
                 );
-                setSignModal(false);
+                // setSignModal(false);
             }
             catch (err) {
                 handleError(err, "Error Occured");
@@ -130,7 +73,7 @@ export default function Requests() {
     }, [socket]);
 
     useEffect(() => {
-        const handleCount = (data : number) => {
+        const handleCount = (data: number) => {
             setSignedNumber(data);
         }
         socket.on("sign-count", handleCount);
@@ -260,116 +203,6 @@ export default function Requests() {
             handleError(err, "Failed to delegate");
         }
     }
-
-    const getActions = (record: Template) => {
-        const totalDocs = record?.data?.length || 0;
-        const rejectedCount = record?.data?.filter(d => d.rejectionReason)?.length || 0;
-
-        if (totalDocs > 0 && rejectedCount === totalDocs && role == 2) {
-            return <Tag color="#fa541c">Rejected</Tag>;
-        }
-        if (role === 3 || record?.createdBy === sessionId) {
-            const items: MenuProps['items'] = [
-                {
-                    key: 'clone',
-                    label: 'Clone',
-                    onClick: () => cloneTemplate(record.id),
-                },
-            ];
-
-            if (record?.signStatus === 0 && record?.data?.length > 0) {
-                items.push({
-                    key: 'dispatch',
-                    label: 'Send for Signature',
-                    onClick: () => sendForSignature(record),
-                });
-            }
-
-            if (record?.signStatus == 0) {
-                items.push({
-                    key: 'delete',
-                    label: 'Delete',
-                    danger: true,
-                    onClick: () => deleteTemplate(record.id),
-                })
-            }
-
-            if (record?.signStatus == 3) {
-                items.push({
-                    key: 'sign',
-                    label: 'Sign',
-                    onClick: () => handleSign(record?.id),
-                });
-            }
-
-            return (
-                <Dropdown
-                    menu={{ items }}
-                    trigger={['click']}
-                >
-                    <Button>
-                        Actions <DownOutlined />
-                    </Button>
-                </Dropdown>
-            );
-        }
-        else if (role === 2) {
-            const items: MenuProps['items'] = [];
-            if (record?.signStatus == 3) {
-                return <Tag color="#722ed1">Delegated</Tag>;
-            }
-
-            if (record?.signStatus == 5) {
-                return <Tag color="#52c41a">Signed</Tag>
-            }
-
-            if (record?.assignedTo && record?.signStatus == 1) {
-                items.push({
-                    key: 'sign',
-                    label: 'Sign',
-                    onClick: () => handleSign(record?.id),
-                });
-            }
-
-            if (record?.signStatus == 1) {
-                items?.push({
-                    key: 'delegate',
-                    label: 'delegate',
-                    onClick: () => handleDelegate(record?.id),
-                })
-            }
-
-            if (record?.signStatus == 0) {
-                items.push({
-                    key: 'delete',
-                    label: 'Delete',
-                    danger: true,
-                    onClick: () => deleteTemplate(record.id),
-                })
-            }
-
-            if (record?.signStatus == 1) {
-                items.push({
-                    key: 'rejectAll',
-                    label: 'Reject All',
-                    danger: true,
-                    onClick: () => handleRejectAll(record?.id)
-                })
-            }
-
-            return (
-                <Dropdown
-                    menu={{ items }}
-                    trigger={['click']}
-                >
-                    <Button>
-                        Actions <DownOutlined />
-                    </Button>
-                </Dropdown>
-            );
-        }
-    };
-
     async function getAll() {
         try {
             const response = await ReaderClient.allTemplates();
@@ -415,7 +248,6 @@ export default function Requests() {
 
     const showRejectedDocs = async (id: string) => {
         try {
-            console.log(id);
             navigate(`/dashboard/rejectedReq/${id}`);
         }
         catch (err) {
@@ -463,11 +295,7 @@ export default function Requests() {
             render: (status: number) => {
                 const statusObj = statusMap[status];
                 if (!statusObj) return null;
-
-                const label = status == 4
-                    ? `${statusObj.label} (${signedNumber})`
-                    : statusObj.label;
-
+                const label = status == 4 ? `${statusObj.label} (${signedNumber})` : statusObj.label;
                 return <Tag color={statusObj.color}>{label}</Tag>;
             },
         },
@@ -475,20 +303,12 @@ export default function Requests() {
         {
             title: 'Action',
             key: 'action',
-            render: (_: any, record: Template) => getActions(record),
+            render: (_: any, record: Template) =>
+                getActions({
+                    record,role,sessionId,cloneTemplate,sendForSignature,deleteTemplate,handleSign,handleDelegate,handleRejectAll,
+                }),
         },
     ];
-
-
-    const handleError = (
-        error: unknown,
-        fallbackMsg = "Something went wrong"
-    ) => {
-        console.error(error);
-        if (error instanceof Error) return message.error(error.message);
-        if (typeof error === "string") return message.error(error);
-        return message.error(fallbackMsg);
-    };
 
     const handleTemplateSubmission = async () => {
         try {
@@ -553,17 +373,6 @@ export default function Requests() {
         }
     }
 
-    const handleCancelDelegate = () => {
-        try {
-            setDelegateModal(false);
-            setDelegateReason("");
-            setSelectedRecord("");
-        }
-        catch (err) {
-            handleError(err, "An error occured");
-        }
-    }
-
     const handleRejectionOk = async () => {
         try {
             await OfficerClient.rejectAll(selectedRecord, rejectReason);
@@ -578,7 +387,7 @@ export default function Requests() {
     const onDelegateOk = async () => {
         try {
             await OfficerClient.delegateRequest(selectedRecord, delegateReason);
-            handleCancelDelegate();
+            setDelegateModal(false);
         }
         catch (err) {
             handleError(err, "Error in delegating request");
@@ -589,21 +398,12 @@ export default function Requests() {
         try {
             if (!selectedSignature) return;
             const { id, url } = selectedSignature;
-            const response = await OfficerClient.signDocuments(selectedRecord, url, id);
-            console.log(response);
+            setSignModal(false);
+            await OfficerClient.signDocuments(selectedRecord, url, id);
         }
         catch (err) {
             handleError(err, "Error in document");
-        }
-    }
-
-    const onCancelSign = async () => {
-        try {
             setSignModal(false);
-            setSelectedSignature(null);
-        }
-        catch (err) {
-            handleError(err, "Error in cancel");
         }
     }
 
@@ -691,8 +491,7 @@ export default function Requests() {
                         <Select style={{ width: '100%' }} placeholder="Select Officer"
                             onChange={(value) => { setSelectedOfficerId(value); }}
                         >
-                            {
-                                officers?.map((officer) => (
+                            {officers?.map((officer) => (
                                     <Option key={officer?.id} value={officer?.id}>
                                         {officer.name}
                                     </Option>
@@ -700,9 +499,7 @@ export default function Requests() {
                             }
                         </Select>
                     </Modal>
-                )
-                }
-
+                )}
                 {reasonModal && (
                     <Modal
                         title="Rejection Reason"
@@ -716,31 +513,28 @@ export default function Requests() {
                         >
                         </Input.TextArea>
                     </Modal>
-                )
-                }
-
+                )}
                 {delegateModal && (
                     <Modal
                         title="Delegation Reason"
                         closable={{ 'aria-label': 'Custom Close Button' }}
                         open={delegateModal}
                         onOk={onDelegateOk}
-                        onCancel={handleCancelDelegate}
+                        onCancel={() => setDelegateModal(false)}
                     >
                         <Input.TextArea rows={4} placeholder="Enter Rejection Reason" value={delegateReason}
                             onChange={(e) => setDelegateReason(e.target.value)}
                         >
                         </Input.TextArea>
                     </Modal>
-                )
-                }
+                )}
                 {signModal && (
                     <Modal
                         title="Select Signature"
                         closable={{ 'aria-label': 'Custom Close Button' }}
                         open={signModal}
                         onOk={onSignOk}
-                        onCancel={onCancelSign}
+                        onCancel={() => setSignModal(false)}
                     >
                         <Radio.Group
                             onChange={(e) => setSelectedSignature(e.target.value)}
@@ -752,18 +546,15 @@ export default function Requests() {
                                 return (
                                     <Radio key={index} value={item}>
                                         <img
-                                            src={imageUrl}
-                                            alt={`Signature ${index + 1}`}
+                                            src={imageUrl} alt={`Signature ${index + 1}`}
                                             style={{ height: '80px', border: '1px solid #ccc', padding: '5px', borderRadius: '8px', }}
                                         />
                                     </Radio>
                                 );
                             })}
                         </Radio.Group>
-
                     </Modal>
-                )
-                }
+                )}
             </MainAreaLayout>
         </>
     );

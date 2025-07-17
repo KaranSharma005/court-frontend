@@ -6,6 +6,8 @@ import { saveAs } from 'file-saver'
 import { useParams } from "react-router";
 import type { ColumnsType } from 'antd/es/table';
 import { useState, useEffect, useRef } from 'react';
+import { statusMap, excelFields } from '../utils/index'
+import { handleError } from "../utils/requestUtils";
 import {
 	Button,
 	Form,
@@ -19,17 +21,6 @@ import {
 } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 
-const statusMap: Record<number, { color: string, label: string }> = {
-	0: { color: 'red', label: 'Unsigned' },
-	1: { color: '#1890ff', label: 'Ready to Sign' },
-	2: { color: '#fa541c', label: 'Rejected' },
-	3: { color: '#722ed1', label: 'Delegated' },
-	4: { color: '#fa8c16', label: 'In Process' },
-	5: { color: '#52c41a', label: 'Signed' },
-	6: { color: '#13c2c2', label: 'Ready To Dispatch' },
-	7: { color: '#faad14', label: 'Dispatched' },
-};
-
 export default function RequestPage() {
 	const [form] = Form.useForm();
 	const id = useParams()?.id;
@@ -38,7 +29,6 @@ export default function RequestPage() {
 	const [fields, setFields] = useState<ColumnsType<any>>([]);
 	const [selectedRecord, setSelectedRecord] = useState<string>("");
 	const [rejectReason, setRejectionReason] = useState<string>("");
-	// const [isDispatched, setDispatched] = useState(false);
 	const isDispatched = useRef(false);
 
 	const [tableData, setTableData] = useState<any[]>([]);
@@ -122,7 +112,6 @@ export default function RequestPage() {
 		getFields();
 	}, []);
 
-
 	const handleReject = async (docId: string) => {
 		try {
 			setSelectedRecord(docId);
@@ -172,13 +161,6 @@ export default function RequestPage() {
 		}
 	}
 
-	interface excelFields {
-		name: string,
-		required: boolean,
-		showOnExcel: boolean,
-		_id: string
-	}
-
 	const handleFileChange = (info: any) => {
 		const file = info?.file?.originFileObj || info?.file;
 		if (file) {
@@ -209,16 +191,6 @@ export default function RequestPage() {
 			handleError(err, "Failed to save template");
 		}
 	}
-
-	const handleError = (
-		error: unknown,
-		fallbackMsg = "Something went wrong"
-	) => {
-		console.error(error);
-		if (error instanceof Error) return message.error(error.message);
-		if (typeof error === "string") return message.error(error);
-		return message.error(fallbackMsg);
-	};
 
 	async function onloadFunction() {
 		try {
@@ -380,6 +352,5 @@ export default function RequestPage() {
 				key="id"
 			/>
 		</MainAreaLayout>
-
 	)
 }
